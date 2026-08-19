@@ -6,7 +6,7 @@ const LEADERBOARD_CACHE = 'artizen/leaderboard/v26';
 const PROJECT_CACHE = 'artizen/project/v20';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
-const STATS_CACHE = 'artizen/stats/v1';
+const STATS_CACHE = 'artizen/stats/v2';
 const TOP_BOOST_HOLDERS = 100;
 const BOOST_LIST_CONCURRENCY = 16;
 const LEAD_CREATOR = 'Lead Creator\t(text)';
@@ -269,6 +269,7 @@ export type BoostsPage = {
 export type StatsMonth = {
   month: string;
   usd: number;
+  fees: number;
   art: number;
   count: number;
   total_usd: number;
@@ -310,6 +311,7 @@ export type StatsSeasonRow = {
   prize: number;
   projects: number;
   endowment: number;
+  fees: number;
   art: number;
   funds: number;
 };
@@ -317,6 +319,10 @@ export type StatsSeasonRow = {
 export type StatsPage = {
   endowment: {
     total: number;
+    contributed: number;
+    fees: number;
+    fee_sales: number;
+    fee_purchases: number;
     contributions: number;
     contributors: number;
     average: number;
@@ -371,6 +377,10 @@ export function emptyStats(): StatsPage {
   return {
     endowment: {
       total: 0,
+      contributed: 0,
+      fees: 0,
+      fee_sales: 0,
+      fee_purchases: 0,
       contributions: 0,
       contributors: 0,
       average: 0,
@@ -736,14 +746,15 @@ export class Artizen {
     const seasonById = Object.fromEntries(seasons.map((season) => [season.id, season]));
 
     const endowRows = await this.endowmentContributions();
+    const feeRows = await this.endowmentFees();
     const boostRows = await this.list('boost');
     const projectSeasonRows = await this.list('projectseason');
     const fundRows = await this.list('fundcontribution', {
       constraints: [{ key: 'confirmed', constraint_type: 'equals', value: true }],
     });
 
-    const endowment = this.endowmentStats(endowRows);
-    const seasonRows = this.statsSeasonRows(seasons, endowRows, projectSeasonRows, fundRows);
+    const endowment = this.endowmentStats(endowRows, feeRows);
+    const seasonRows = this.statsSeasonRows(seasons, endowRows, feeRows, projectSeasonRows, fundRows);
 
     return {
       endowment,
@@ -771,35 +782,62 @@ export class Artizen {
     return rows.filter((row) => row['confirmed'] !== false);
   }
 
-  private endowmentStats(rows: Row[]): StatsPage['endowment'] {
-    const amounts = rows.map((row) => num(row['amount usd']));
-    const total = sum(amounts);
-    const stamps = compact(rows.map((row) => presence(row['Created Date']))).sort();
-    const byMonth: Record<string, { usd: number; art: number; count: number }> = {};
-    for (const row of rows) {
-      const month = monthOf(row['Created Date']);
-      if (!month) continue;
+  // Artifact sales pay 10% into the endowment, booked per purchase. Admin-entered
+  // sales carry no fee, and unconfirmed rows hold junk figures, so both are skipped.
+  private async endowmentFees(): Promise<Row[]> {
+    return this.list('transaction', {
+      constraints: [
+        { key: 'confirmed', constraint_type: 'equals', value: true },
+        { key: 'endowment fee', constraint_type: 'greater than', value: 0 },
+      ],
+    });
+  }
 
-      const bucket = (byMonth[month] ||= { usd: 0, art: 0, count: 0 });
+  private endowmentStats(rows: Row[], feeRows: Row[]): StatsPage['endowment'] {
+    const amounts = rows.map((row) => num(row['amount usd']));
+    const contributed = sum(amounts);
+    const fees = sum(feeRows, (row) => num(row['endowment fee']));
+    const stamps = compact(rows.map((row) => presence(row['Created Date']))).sort();
+
+    type Bucket = { usd: number; fees: number; art: number; count: number };
+    const byMonth: Record<string, Bucket> = {};
+    const bucketFor = (value: unknown): Bucket | undefined => {
+      const month = monthOf(value);
+      if (!month) return undefined;
+      return (byMonth[month] ||= { usd: 0, fees: 0, art: 0, count: 0 });
+    };
+    for (const row of rows) {
+      const bucket = bucketFor(row['Created Date']);
+      if (!bucket) continue;
+
       bucket.usd += num(row['amount usd']);
       bucket.art += num(row['ART received']);
       bucket.count += 1;
     }
+    for (const row of feeRows) {
+      const bucket = bucketFor(row['Created Date']);
+      if (bucket) bucket.fees += num(row['endowment fee']);
+    }
+
     const keys = Object.keys(byMonth).sort();
     let runningUsd = 0;
     let runningArt = 0;
     const months = monthRange(keys[0] || '', keys[keys.length - 1] || '').map((month) => {
-      const bucket = byMonth[month] || { usd: 0, art: 0, count: 0 };
-      runningUsd += bucket.usd;
+      const bucket = byMonth[month] || { usd: 0, fees: 0, art: 0, count: 0 };
+      runningUsd += bucket.usd + bucket.fees;
       runningArt += bucket.art;
       return { month, ...bucket, total_usd: runningUsd, total_art: runningArt } satisfies StatsMonth;
     });
 
     return {
-      total,
+      total: contributed + fees,
+      contributed,
+      fees,
+      fee_sales: sum(feeRows, (row) => num(row['amount spent $USD'])),
+      fee_purchases: feeRows.length,
       contributions: rows.length,
       contributors: compactUniq(rows.map((row) => row['buyer (user account)'])).length,
-      average: rows.length > 0 ? total / rows.length : 0,
+      average: rows.length > 0 ? contributed / rows.length : 0,
       median: this.median(amounts),
       largest: amounts.reduce((max, value) => Math.max(max, value), 0),
       first_at: stamps[0] || '',
@@ -886,6 +924,7 @@ export class Artizen {
   private statsSeasonRows(
     seasons: Season[],
     endowRows: Row[],
+    feeRows: Row[],
     projectSeasonRows: Row[],
     fundRows: Row[],
   ): StatsSeasonRow[] {
@@ -902,6 +941,7 @@ export class Artizen {
           prize: 0,
           projects: 0,
           endowment: 0,
+          fees: 0,
           art: 0,
           funds: 0,
         } satisfies StatsSeasonRow,
@@ -930,6 +970,12 @@ export class Artizen {
 
       season.endowment += num(row['amount usd']);
       season.art += num(row['ART received']);
+    }
+    for (const row of feeRows) {
+      const season = seasonOf(row, 'Season');
+      if (!season) continue;
+
+      season.fees += num(row['endowment fee']);
     }
     for (const row of fundRows) {
       const season = seasonOf(row, 'Season');

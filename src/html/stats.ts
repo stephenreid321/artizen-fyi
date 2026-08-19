@@ -41,6 +41,7 @@ type ChartSpec = {
   id: string;
   labels: string[];
   series: Series[];
+  stacked?: boolean;
 };
 
 function canvas(spec: ChartSpec): string {
@@ -91,10 +92,11 @@ function chartScript(specs: ChartSpec[]): string {
               }
             },
             scales: {
-              x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
+              x: { grid: { display: false }, stacked: !!spec.stacked, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
               y: {
                 beginAtZero: true,
                 position: 'left',
+                stacked: !!spec.stacked,
                 ticks: { callback: function(v) { return fmt(v, spec.series[0].money); } }
               },
               y1: {
@@ -158,7 +160,7 @@ function seasonRows(seasons: StatsSeasonRow[]): string {
         <td class="text-end">${cash(season.match)}</td>
         <td class="text-end">${cash(season.prize)}</td>
         <td class="text-end">${cash(season.funds)}</td>
-        <td class="text-end">${cash(season.endowment)}</td>
+        <td class="text-end">${cash(season.endowment + season.fees)}</td>
         <td class="text-end">${season.art > 0 ? compactNum(season.art) : ''}</td>
       </tr>`;
     })
@@ -187,9 +189,11 @@ export function renderStats(data: StatsPage): string {
   if (endowment.months.length > 0) {
     charts.push({
       id: 'artizen-endowment-chart',
+      stacked: true,
       labels: monthLabels,
       series: [
-        { label: 'Contributed', data: endowment.months.map((m) => m.usd), type: 'bar', color: '#1ACC6C', axis: 'y', money: true },
+        { label: 'Contributions', data: endowment.months.map((m) => m.usd), type: 'bar', color: '#1ACC6C', axis: 'y', money: true },
+        { label: 'Sales fee', data: endowment.months.map((m) => m.fees), type: 'bar', color: '#4C6EF5', axis: 'y', money: true },
         { label: 'Cumulative', data: endowment.months.map((m) => m.total_usd), type: 'line', color: '#101212', axis: 'y1', money: true },
       ],
     });
@@ -220,14 +224,14 @@ export function renderStats(data: StatsPage): string {
     ${statRow([
       stat('Users', delimited(users.accounts), `${delimited(users.wallets)} with a wallet`),
       stat('Raised all time', usd(raised), 'Sum of every season total'),
-      stat('Endowment in', usd(endowment.total), `${delimited(endowment.contributions)} contributions`),
+      stat('Endowment in', usd(endowment.total), `${usd(endowment.contributed)} contributed, ${usd(endowment.fees)} from sales`),
       stat('ART issued', compactNum(art.issued), `${delimited(art.issued)} ART`),
       stat('Prizes awarded', usd(spend.total), 'Prize pots and match boosts funded by Artizen'),
     ])}
     ${note(
-      `Everything here is aggregated from the public Artizen API and refreshed hourly. Money in and out of the
-      endowment is counted from confirmed endowment contributions and from the prize pots attached to fund drives,
-      sales sprints and match boosts.`,
+      `Everything here is aggregated from the public Artizen API and refreshed hourly. Money into the endowment is
+      confirmed contributions plus the 10% fee on Artifact sales; money out is the prize pots attached to fund
+      drives, sales sprints and match boosts.`,
     )}
   `);
 
@@ -235,12 +239,17 @@ export function renderStats(data: StatsPage): string {
     <h2 class="artizen-panel-title">Endowment</h2>
     ${statRow([
       stat('Total in', usd(endowment.total)),
-      stat('Contributions', delimited(endowment.contributions)),
-      stat('Contributors', delimited(endowment.contributors)),
-      stat('Median', usd(endowment.median), `Mean ${usd(endowment.average)}`),
-      stat('Largest', usd(endowment.largest)),
+      stat('Contributions', usd(endowment.contributed), `${delimited(endowment.contributions)} gifts from ${delimited(endowment.contributors)} contributors`),
+      stat('Sales fee', usd(endowment.fees), `10% of ${usd(endowment.fee_sales)} in Artifact sales`),
+      stat('Median gift', usd(endowment.median), `Mean ${usd(endowment.average)}`),
+      stat('Largest gift', usd(endowment.largest)),
     ])}
     ${draw('artizen-endowment-chart')}
+    ${note(
+      `Two streams feed the endowment: direct contributions, and a 10% fee on Artifact sales. The fee is read from
+      the ${delimited(endowment.fee_purchases)} purchases that booked one, covering ${usd(endowment.fee_sales)} of sales.
+      Admin-entered sales carry no fee, so they are not counted here.`,
+    )}
     <p class="small text-muted mb-0">First contribution ${fmtDate(endowment.first_at, true)}, most recent ${fmtDate(endowment.last_at, true)}.</p>
   `);
 
