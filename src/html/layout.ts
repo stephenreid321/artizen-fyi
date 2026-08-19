@@ -62,6 +62,7 @@ export function layout(opts: {
   season?: string | null;
   boards?: boolean;
   boosts?: boolean;
+  stats?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
   const image = escapeHtml(opts.image || 'https://artizen.fyi/og.png');
@@ -115,7 +116,7 @@ export function layout(opts: {
   <style>${styles}</style>
 </head>
 <body>
-  ${nav(opts.query, opts.season, opts.boards, opts.boosts)}
+  ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.stats)}
   <div class="artizen-shell">
     ${opts.body}
   </div>
@@ -125,13 +126,14 @@ export function layout(opts: {
 </html>`;
 }
 
-function nav(query?: string, season?: string | null, boards?: boolean, boosts?: boolean): string {
+function nav(query?: string, season?: string | null, boards?: boolean, boosts?: boolean, stats?: boolean): string {
   const seasonField = season
     ? `<input type="hidden" name="season" value="${escapeHtml(season)}">`
     : '';
   const boardsHref = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
   const boardsClass = boards ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   const boostsClass = boosts ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
+  const statsClass = stats ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   return `
 <header class="artizen-nav">
   <div class="artizen-nav-inner">
@@ -139,6 +141,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       <div class="d-none d-md-flex gap-2">
         <a class="${boardsClass}" href="${boardsHref}">Seasons</a>
         <a class="${boostsClass}" href="/boosts">Boosts</a>
+        <a class="${statsClass}" href="/stats">Stats</a>
       </div>
       <button type="button" class="artizen-nav-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#artizen-nav-offcanvas" aria-controls="artizen-nav-offcanvas" aria-label="Menu">
         <i class="bi bi-list" aria-hidden="true"></i>
@@ -164,6 +167,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
     <nav class="artizen-offcanvas-nav">
       <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Seasons</a>
       <a class="${boosts ? 'active' : ''}" href="/boosts"${boosts ? ' aria-current="page"' : ''}>Boosts</a>
+      <a class="${stats ? 'active' : ''}" href="/stats"${stats ? ' aria-current="page"' : ''}>Stats</a>
     </nav>
   </div>
 </div>
