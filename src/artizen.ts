@@ -6,6 +6,7 @@ const LEADERBOARD_CACHE = 'artizen/leaderboard/v29';
 const PROJECT_CACHE = 'artizen/project/v29';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
+const STATS_CACHE = 'artizen/stats/v3';
 const TOP_BOOST_HOLDERS = 100;
 const BOOST_LIST_CONCURRENCY = 16;
 const LEAD_CREATOR = 'Lead Creator\t(text)';
@@ -267,6 +268,177 @@ export type BoostsPage = {
   error: boolean;
 };
 
+export type StatsMonth = {
+  month: string;
+  usd: number;
+  fees: number;
+  art: number;
+  count: number;
+  total_usd: number;
+  total_art: number;
+};
+
+export type StatsUserMonth = {
+  month: string;
+  signups: number;
+  total: number;
+};
+
+export type StatsTier = {
+  price: number | null;
+  usd: number;
+  art: number;
+  count: number;
+};
+
+export type StatsAward = {
+  name: string;
+  url: string;
+  type: string;
+  season_number?: number | null;
+  active: boolean;
+  projects: number;
+  funds: number;
+  match: number;
+  awarded: number;
+  total: number;
+};
+
+export type StatsSeasonRow = {
+  number: number;
+  title: string;
+  current: boolean;
+  raised: number;
+  sales: number;
+  match: number;
+  prize: number;
+  projects: number;
+  endowment: number;
+  fees: number;
+  prizes: number;
+  venus: number;
+  art: number;
+  funds: number;
+};
+
+export type StatsPage = {
+  endowment: {
+    total: number;
+    contributed: number;
+    fees: number;
+    fee_sales: number;
+    fee_purchases: number;
+    contributions: number;
+    contributors: number;
+    average: number;
+    median: number;
+    largest: number;
+    first_at: string;
+    last_at: string;
+    months: StatsMonth[];
+  };
+  art: {
+    issued: number;
+    contributions: number;
+    holders: number;
+    price: number;
+    ceiling: number;
+    tiers: StatsTier[];
+  };
+  spend: {
+    prizes_projects: number;
+    prizes_funds: number;
+    prizes_total: number;
+    prize_winners: number;
+    sprint_prizes: number;
+    match_boosts: number;
+    venus_buys: number;
+    venus_purchases: number;
+    venus_artifacts: number;
+    venus_match: number;
+    venus_first_at: string;
+    venus_last_at: string;
+    total: number;
+    match_unlocked: number;
+    awards: StatsAward[];
+  };
+  funds: {
+    total: number;
+    contributions: number;
+    contributors: number;
+  };
+  sales: {
+    total: number;
+    entries: number;
+  };
+  users: {
+    accounts: number;
+    wallets: number;
+    named: number;
+    pro: number;
+    suspended: number;
+    holders: number;
+    points: number;
+    months: StatsUserMonth[];
+  };
+  seasons: StatsSeasonRow[];
+  updated_at: string;
+  error: boolean;
+};
+
+export function emptyStats(): StatsPage {
+  return {
+    endowment: {
+      total: 0,
+      contributed: 0,
+      fees: 0,
+      fee_sales: 0,
+      fee_purchases: 0,
+      contributions: 0,
+      contributors: 0,
+      average: 0,
+      median: 0,
+      largest: 0,
+      first_at: '',
+      last_at: '',
+      months: [],
+    },
+    art: { issued: 0, contributions: 0, holders: 0, price: 0, ceiling: 0, tiers: [] },
+    spend: {
+      prizes_projects: 0,
+      prizes_funds: 0,
+      prizes_total: 0,
+      prize_winners: 0,
+      sprint_prizes: 0,
+      match_boosts: 0,
+      venus_buys: 0,
+      venus_purchases: 0,
+      venus_artifacts: 0,
+      venus_match: 0,
+      venus_first_at: '',
+      venus_last_at: '',
+      total: 0,
+      match_unlocked: 0,
+      awards: [],
+    },
+    funds: { total: 0, contributions: 0, contributors: 0 },
+    sales: { total: 0, entries: 0 },
+    users: {
+      accounts: 0,
+      wallets: 0,
+      named: 0,
+      pro: 0,
+      suspended: 0,
+      holders: 0,
+      points: 0,
+      months: [],
+    },
+    seasons: [],
+    updated_at: '',
+    error: true,
+  };
+}
+
 function num(value: unknown): number {
   if (value == null || value === '') return 0;
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -409,6 +581,35 @@ function isErrorHash(value: unknown): boolean {
   return typeof value === 'object' && value != null && Boolean((value as { error?: unknown }).error);
 }
 
+// Bubble ids are `<created epoch ms>x<random>`, the only creation stamp the
+// useraccount endpoint exposes.
+function createdAtMs(id: unknown): number {
+  const ms = Number.parseInt(String(id ?? '').split('x')[0], 10);
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+function monthOf(value: unknown): string {
+  const ms = typeof value === 'number' ? value : Date.parse(String(value ?? ''));
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  return new Date(ms).toISOString().slice(0, 7);
+}
+
+function monthRange(first: string, last: string): string[] {
+  if (!first || !last) return [];
+  const out: string[] = [];
+  let [year, month] = first.split('-').map(Number);
+  const [lastYear, lastMonth] = last.split('-').map(Number);
+  while (year < lastYear || (year === lastYear && month <= lastMonth)) {
+    out.push(`${year}-${String(month).padStart(2, '0')}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return out;
+}
+
 export class Artizen {
   private venusId: string | undefined;
 
@@ -452,6 +653,10 @@ export class Artizen {
     return this.withArtizenErrors(fallback, () => this.cached(BOOSTS_CACHE, fallback, () => this.buildBoosts()));
   }
 
+  async stats(): Promise<StatsPage> {
+    return this.withArtizenErrors(emptyStats(), () => this.cacheFetch(STATS_CACHE, () => this.buildStats()));
+  }
+
   async refreshCache(): Promise<string> {
     const started = Date.now();
     const seasons = await this.fetchSeasons();
@@ -466,10 +671,14 @@ export class Artizen {
     console.log('[Artizen] boosts');
     const boosts = await this.rebuild(BOOSTS_CACHE, () => this.buildBoosts());
 
+    console.log('[Artizen] stats');
+    const stats = await this.rebuild(STATS_CACHE, () => this.buildStats());
+
     let dropped = await this.deleteByPrefix(`${PROJECT_CACHE}/`);
     dropped += await this.deleteByPrefix(`${FUND_CACHE}/`);
 
-    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
+    const ok = (data: { error: boolean } | null) => (data && !data.error ? 'ok' : 'failed');
+    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${ok(boosts)}, stats ${ok(stats)}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
     console.log(summary);
     return summary;
   }
@@ -550,6 +759,335 @@ export class Artizen {
       top,
       error: false,
     };
+  }
+
+  private async buildStats(): Promise<StatsPage> {
+    const seasons = await this.fetchSeasons();
+    const seasonById = Object.fromEntries(seasons.map((season) => [season.id, season]));
+
+    const endowRows = await this.endowmentContributions();
+    const feeRows = await this.endowmentFees();
+    const prizeRows = await this.prizesAwarded();
+    const venusRows = await this.venusTransactions();
+    const boostRows = await this.list('boost');
+    const projectSeasonRows = await this.list('projectseason');
+    const fundRows = await this.list('fundcontribution', {
+      constraints: [{ key: 'confirmed', constraint_type: 'equals', value: true }],
+    });
+
+    const endowment = this.endowmentStats(endowRows, feeRows);
+    const seasonRows = this.statsSeasonRows(seasons, endowRows, feeRows, projectSeasonRows, fundRows, prizeRows, venusRows);
+
+    return {
+      endowment,
+      art: this.artStats(endowRows),
+      spend: this.spendStats(boostRows, seasonById, projectSeasonRows, prizeRows, venusRows),
+      funds: {
+        total: sum(fundRows, (row) => num(row['amount $USD'])),
+        contributions: fundRows.length,
+        contributors: compactUniq(fundRows.map((row) => row['buyer (user account)'])).length,
+      },
+      sales: {
+        total: sum(projectSeasonRows, (row) => num(row['funding total sales'])),
+        entries: projectSeasonRows.length,
+      },
+      users: await this.userStats(),
+      seasons: seasonRows,
+      updated_at: new Date().toISOString(),
+      error: false,
+    };
+  }
+
+  // Unconfirmed rows are abandoned checkouts; older rows predate the flag.
+  private async endowmentContributions(): Promise<Row[]> {
+    const rows = await this.list('endowmentcontribution');
+    return rows.filter((row) => row['confirmed'] !== false);
+  }
+
+  // Prizes actually paid out, per participant. Only fund drives book this; sales
+  // sprints record no payout, so their advertised pots are counted separately.
+  private async prizesAwarded(): Promise<Row[]> {
+    return this.list('boostparticipant', {
+      constraints: [{ key: 'prize earned usd', constraint_type: 'greater than', value: 0 }],
+    });
+  }
+
+  // Artifact sales pay 10% into the endowment, booked per purchase. Admin-entered
+  // sales carry no fee, and unconfirmed rows hold junk figures, so both are skipped.
+  private async endowmentFees(): Promise<Row[]> {
+    return this.list('transaction', {
+      constraints: [
+        { key: 'confirmed', constraint_type: 'equals', value: true },
+        { key: 'endowment fee', constraint_type: 'greater than', value: 0 },
+      ],
+    });
+  }
+
+  private endowmentStats(rows: Row[], feeRows: Row[]): StatsPage['endowment'] {
+    const amounts = rows.map((row) => num(row['amount usd']));
+    const contributed = sum(amounts);
+    const fees = sum(feeRows, (row) => num(row['endowment fee']));
+    const stamps = compact(rows.map((row) => presence(row['Created Date']))).sort();
+
+    type Bucket = { usd: number; fees: number; art: number; count: number };
+    const byMonth: Record<string, Bucket> = {};
+    const bucketFor = (value: unknown): Bucket | undefined => {
+      const month = monthOf(value);
+      if (!month) return undefined;
+      return (byMonth[month] ||= { usd: 0, fees: 0, art: 0, count: 0 });
+    };
+    for (const row of rows) {
+      const bucket = bucketFor(row['Created Date']);
+      if (!bucket) continue;
+
+      bucket.usd += num(row['amount usd']);
+      bucket.art += num(row['ART received']);
+      bucket.count += 1;
+    }
+    for (const row of feeRows) {
+      const bucket = bucketFor(row['Created Date']);
+      if (bucket) bucket.fees += num(row['endowment fee']);
+    }
+
+    const keys = Object.keys(byMonth).sort();
+    let runningUsd = 0;
+    let runningArt = 0;
+    const months = monthRange(keys[0] || '', keys[keys.length - 1] || '').map((month) => {
+      const bucket = byMonth[month] || { usd: 0, fees: 0, art: 0, count: 0 };
+      runningUsd += bucket.usd + bucket.fees;
+      runningArt += bucket.art;
+      return { month, ...bucket, total_usd: runningUsd, total_art: runningArt } satisfies StatsMonth;
+    });
+
+    return {
+      total: contributed + fees,
+      contributed,
+      fees,
+      fee_sales: sum(feeRows, (row) => num(row['amount spent $USD'])),
+      fee_purchases: feeRows.length,
+      contributions: rows.length,
+      contributors: compactUniq(rows.map((row) => row['buyer (user account)'])).length,
+      average: rows.length > 0 ? contributed / rows.length : 0,
+      median: this.median(amounts),
+      largest: amounts.reduce((max, value) => Math.max(max, value), 0),
+      first_at: stamps[0] || '',
+      last_at: stamps[stamps.length - 1] || '',
+      months,
+    };
+  }
+
+  private artStats(rows: Row[]): StatsPage['art'] {
+    const minted = rows.filter((row) => num(row['ART received']) > 0);
+    const issued = sum(minted, (row) => num(row['ART received']));
+    const paid = sum(minted, (row) => num(row['amount usd']));
+    const tiers: Record<string, StatsTier> = {};
+    for (const row of minted) {
+      const price = optNum(row['ceiling price']) ?? null;
+      const tier = (tiers[String(price)] ||= { price, usd: 0, art: 0, count: 0 });
+      tier.usd += num(row['amount usd']);
+      tier.art += num(row['ART received']);
+      tier.count += 1;
+    }
+    const latest = minted
+      .filter((row) => num(row['ceiling price']) > 0)
+      .sort((a, b) => str(a['Created Date']).localeCompare(str(b['Created Date'])))
+      .pop();
+
+    return {
+      issued,
+      contributions: minted.length,
+      holders: compactUniq(minted.map((row) => row['buyer (user account)'])).length,
+      price: issued > 0 ? paid / issued : 0,
+      ceiling: latest ? num(latest['ceiling price']) : 0,
+      tiers: sortByDesc(Object.values(tiers), (tier) => tier.art),
+    };
+  }
+
+  // Endowment money out. Fund-drive prizes are what participants actually earned;
+  // sales sprints book no payout, so their advertised pots stand in. Venus is the
+  // Artizen house account, and its Artifact buys are endowment money too.
+  private spendStats(
+    boostRows: Row[],
+    seasonById: Record<string, Season>,
+    projectSeasonRows: Row[],
+    prizeRows: Row[],
+    venusRows: Row[],
+  ): StatsPage['spend'] {
+    const places = (row: Row, kind: 'project' | 'fund') =>
+      sum(['1st', '2nd', '3rd'], (nth) => num(row[`${kind} ${nth} prize `]));
+
+    const awardedByBoost: Record<string, number> = {};
+    for (const row of prizeRows) bump(awardedByBoost, idKey(row['boost']), num(row['prize earned usd']));
+
+    const awards = sortByDesc(
+      filterMap(boostRows, (row) => {
+        const drive = this.normalizeDrive(row);
+        const projects = places(row, 'project');
+        const funds = places(row, 'fund');
+        const match = row['Type'] === 'Match boost' ? num(row['total match pot funds']) : 0;
+        const awarded = num(lookup(awardedByBoost, row['_id']));
+        const total = awarded > 0 ? awarded + match : projects + funds + match;
+        if (!(total > 0)) return undefined;
+
+        return {
+          name: drive.name,
+          url: drive.url,
+          type: str(row['Type']),
+          season_number: drive.season_number ?? lookup(seasonById, row['season'])?.number,
+          active: drive.active,
+          projects,
+          funds,
+          match,
+          awarded,
+          total,
+        } satisfies StatsAward;
+      }),
+      (award) => award.total,
+    );
+
+    const prizesProjects = sum(prizeRows, (row) => (blank(row['project']) ? 0 : num(row['prize earned usd'])));
+    const prizesTotal = sum(prizeRows, (row) => num(row['prize earned usd']));
+    const sprintPrizes = sum(
+      awards.filter((award) => award.type === 'Sales sprint'),
+      (award) => award.projects + award.funds,
+    );
+    const matchBoosts = sum(awards, (award) => award.match);
+    const venusBuys = sum(venusRows, (row) => num(row['amount spent $USD']));
+    const venusStamps = compact(venusRows.map((row) => presence(row['Created Date']))).sort();
+
+    return {
+      prizes_projects: prizesProjects,
+      prizes_funds: prizesTotal - prizesProjects,
+      prizes_total: prizesTotal,
+      prize_winners: prizeRows.length,
+      sprint_prizes: sprintPrizes,
+      match_boosts: matchBoosts,
+      venus_buys: venusBuys,
+      venus_purchases: venusRows.length,
+      venus_artifacts: sum(venusRows, (row) => num(row['number of artifacts purchased'])),
+      venus_match: sum(venusRows, (row) => num(row['match funding'])),
+      venus_first_at: venusStamps[0] || '',
+      venus_last_at: venusStamps[venusStamps.length - 1] || '',
+      total: prizesTotal + sprintPrizes + matchBoosts + venusBuys,
+      match_unlocked: sum(projectSeasonRows, (row) => num(row['funding match']) + num(row['funding boost '])),
+      awards,
+    };
+  }
+
+  private statsSeasonRows(
+    seasons: Season[],
+    endowRows: Row[],
+    feeRows: Row[],
+    projectSeasonRows: Row[],
+    fundRows: Row[],
+    prizeRows: Row[],
+    venusRows: Row[],
+  ): StatsSeasonRow[] {
+    const totals: Record<string, StatsSeasonRow> = Object.fromEntries(
+      seasons.map((season) => [
+        season.id,
+        {
+          number: season.number,
+          title: season.title,
+          current: season.current,
+          raised: num(season.total_raised),
+          sales: 0,
+          match: 0,
+          prize: 0,
+          projects: 0,
+          endowment: 0,
+          fees: 0,
+          prizes: 0,
+          venus: 0,
+          art: 0,
+          funds: 0,
+        } satisfies StatsSeasonRow,
+      ]),
+    );
+    const seasonOf = (row: Row, field: string) => {
+      const direct = lookup(totals, row[field]);
+      if (direct) return direct;
+
+      const number = optInt(row['season number']);
+      return number == null ? undefined : Object.values(totals).find((season) => season.number === number);
+    };
+
+    for (const row of projectSeasonRows) {
+      const season = seasonOf(row, 'season ');
+      if (!season) continue;
+
+      season.sales += num(row['funding total sales']);
+      season.match += num(row['funding match']) + num(row['funding boost ']);
+      season.prize += num(row['funding prize funds usd']);
+      if (num(row['funding total']) > 0) season.projects += 1;
+    }
+    for (const row of endowRows) {
+      const season = seasonOf(row, 'season');
+      if (!season) continue;
+
+      season.endowment += num(row['amount usd']);
+      season.art += num(row['ART received']);
+    }
+    for (const row of feeRows) {
+      const season = seasonOf(row, 'Season');
+      if (!season) continue;
+
+      season.fees += num(row['endowment fee']);
+    }
+    for (const row of fundRows) {
+      const season = seasonOf(row, 'Season');
+      if (!season) continue;
+
+      season.funds += num(row['amount $USD']);
+    }
+    for (const row of prizeRows) {
+      const season = seasonOf(row, 'season');
+      if (season) season.prizes += num(row['prize earned usd']);
+    }
+    for (const row of venusRows) {
+      const season = seasonOf(row, 'Season');
+      if (season) season.venus += num(row['amount spent $USD']);
+    }
+    return sortByDesc(Object.values(totals), (season) => season.number);
+  }
+
+  private async userStats(): Promise<StatsPage['users']> {
+    const byMonth: Record<string, number> = {};
+    const users = {
+      accounts: 0,
+      wallets: 0,
+      named: 0,
+      pro: 0,
+      suspended: 0,
+      holders: 0,
+      points: 0,
+      months: [] as StatsUserMonth[],
+    };
+
+    await this.listEach('useraccount', (row) => {
+      users.accounts += 1;
+      if (!blank(row['wallet'])) users.wallets += 1;
+      if (!blank(row['name'])) users.named += 1;
+      if (!blank(row['pro subscription status'])) users.pro += 1;
+      if (row['suspended'] === true) users.suspended += 1;
+
+      const points = num(row['points - current']);
+      if (points > 0) {
+        users.holders += 1;
+        users.points += points;
+      }
+      const month = monthOf(createdAtMs(row['_id']));
+      if (month) bump(byMonth, month, 1);
+    });
+
+    const keys = Object.keys(byMonth).sort();
+    let running = 0;
+    users.months = monthRange(keys[0] || '', keys[keys.length - 1] || '').map((month) => {
+      const signups = byMonth[month] || 0;
+      running += signups;
+      return { month, signups, total: running } satisfies StatsUserMonth;
+    });
+    return users;
   }
 
   private unnamedHolder(wallet: unknown): string {

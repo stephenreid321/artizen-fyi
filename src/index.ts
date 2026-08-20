@@ -12,6 +12,7 @@ import {
   renderProject,
   renderProjects,
   renderSearch,
+  renderStats,
 } from './html';
 
 const BOARDS = {
@@ -77,6 +78,10 @@ export default {
 
     if (request.method === 'GET' && path === '/boosts') {
       return html(renderBoosts(await artizen.boosts()));
+    }
+
+    if (request.method === 'GET' && path === '/stats') {
+      return html(renderStats(await artizen.stats()));
     }
 
     if (request.method === 'GET' && path in BOARDS) {

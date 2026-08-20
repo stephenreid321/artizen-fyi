@@ -585,6 +585,10 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-holder-avatar-empty { border: 1px solid var(--line); }
 .artizen-boost-dist { font-size: 0.875rem; }
+.artizen-stats-chart { height: 260px; margin-bottom: 0.9rem; }
+@media (min-width: 768px) {
+  .artizen-stats-chart { height: 320px; }
+}
 .artizen-boost-bar-cell { width: 40%; vertical-align: middle; }
 .artizen-bar {
   display: block;
