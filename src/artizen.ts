@@ -6,7 +6,7 @@ const LEADERBOARD_CACHE = 'artizen/leaderboard/v26';
 const PROJECT_CACHE = 'artizen/project/v20';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
-const STATS_CACHE = 'artizen/stats/v2';
+const STATS_CACHE = 'artizen/stats/v3';
 const TOP_BOOST_HOLDERS = 100;
 const BOOST_LIST_CONCURRENCY = 16;
 const LEAD_CREATOR = 'Lead Creator\t(text)';
@@ -298,6 +298,7 @@ export type StatsAward = {
   projects: number;
   funds: number;
   match: number;
+  awarded: number;
   total: number;
 };
 
@@ -312,6 +313,8 @@ export type StatsSeasonRow = {
   projects: number;
   endowment: number;
   fees: number;
+  prizes: number;
+  venus: number;
   art: number;
   funds: number;
 };
@@ -341,12 +344,20 @@ export type StatsPage = {
     tiers: StatsTier[];
   };
   spend: {
-    project_prizes: number;
-    fund_prizes: number;
+    prizes_projects: number;
+    prizes_funds: number;
+    prizes_total: number;
+    prize_winners: number;
+    sprint_prizes: number;
     match_boosts: number;
+    venus_buys: number;
+    venus_purchases: number;
+    venus_artifacts: number;
+    venus_match: number;
+    venus_first_at: string;
+    venus_last_at: string;
     total: number;
     match_unlocked: number;
-    prize_unlocked: number;
     awards: StatsAward[];
   };
   funds: {
@@ -392,12 +403,20 @@ export function emptyStats(): StatsPage {
     },
     art: { issued: 0, contributions: 0, holders: 0, price: 0, ceiling: 0, tiers: [] },
     spend: {
-      project_prizes: 0,
-      fund_prizes: 0,
+      prizes_projects: 0,
+      prizes_funds: 0,
+      prizes_total: 0,
+      prize_winners: 0,
+      sprint_prizes: 0,
       match_boosts: 0,
+      venus_buys: 0,
+      venus_purchases: 0,
+      venus_artifacts: 0,
+      venus_match: 0,
+      venus_first_at: '',
+      venus_last_at: '',
       total: 0,
       match_unlocked: 0,
-      prize_unlocked: 0,
       awards: [],
     },
     funds: { total: 0, contributions: 0, contributors: 0 },
@@ -747,6 +766,8 @@ export class Artizen {
 
     const endowRows = await this.endowmentContributions();
     const feeRows = await this.endowmentFees();
+    const prizeRows = await this.prizesAwarded();
+    const venusRows = await this.venusTransactions();
     const boostRows = await this.list('boost');
     const projectSeasonRows = await this.list('projectseason');
     const fundRows = await this.list('fundcontribution', {
@@ -754,12 +775,12 @@ export class Artizen {
     });
 
     const endowment = this.endowmentStats(endowRows, feeRows);
-    const seasonRows = this.statsSeasonRows(seasons, endowRows, feeRows, projectSeasonRows, fundRows);
+    const seasonRows = this.statsSeasonRows(seasons, endowRows, feeRows, projectSeasonRows, fundRows, prizeRows, venusRows);
 
     return {
       endowment,
       art: this.artStats(endowRows),
-      spend: this.spendStats(boostRows, seasonById, projectSeasonRows),
+      spend: this.spendStats(boostRows, seasonById, projectSeasonRows, prizeRows, venusRows),
       funds: {
         total: sum(fundRows, (row) => num(row['amount $USD'])),
         contributions: fundRows.length,
@@ -780,6 +801,14 @@ export class Artizen {
   private async endowmentContributions(): Promise<Row[]> {
     const rows = await this.list('endowmentcontribution');
     return rows.filter((row) => row['confirmed'] !== false);
+  }
+
+  // Prizes actually paid out, per participant. Only fund drives book this; sales
+  // sprints record no payout, so their advertised pots are counted separately.
+  private async prizesAwarded(): Promise<Row[]> {
+    return this.list('boostparticipant', {
+      constraints: [{ key: 'prize earned usd', constraint_type: 'greater than', value: 0 }],
+    });
   }
 
   // Artifact sales pay 10% into the endowment, booked per purchase. Admin-entered
@@ -873,15 +902,21 @@ export class Artizen {
     };
   }
 
-  // Prizes and match boosts come out of Artizen's own pot; the fund-drive match
-  // pot is sponsor money, so it is reported separately as match unlocked.
+  // Endowment money out. Fund-drive prizes are what participants actually earned;
+  // sales sprints book no payout, so their advertised pots stand in. Venus is the
+  // Artizen house account, and its Artifact buys are endowment money too.
   private spendStats(
     boostRows: Row[],
     seasonById: Record<string, Season>,
     projectSeasonRows: Row[],
+    prizeRows: Row[],
+    venusRows: Row[],
   ): StatsPage['spend'] {
     const places = (row: Row, kind: 'project' | 'fund') =>
       sum(['1st', '2nd', '3rd'], (nth) => num(row[`${kind} ${nth} prize `]));
+
+    const awardedByBoost: Record<string, number> = {};
+    for (const row of prizeRows) bump(awardedByBoost, idKey(row['boost']), num(row['prize earned usd']));
 
     const awards = sortByDesc(
       filterMap(boostRows, (row) => {
@@ -889,7 +924,8 @@ export class Artizen {
         const projects = places(row, 'project');
         const funds = places(row, 'fund');
         const match = row['Type'] === 'Match boost' ? num(row['total match pot funds']) : 0;
-        const total = projects + funds + match;
+        const awarded = num(lookup(awardedByBoost, row['_id']));
+        const total = awarded > 0 ? awarded + match : projects + funds + match;
         if (!(total > 0)) return undefined;
 
         return {
@@ -901,22 +937,38 @@ export class Artizen {
           projects,
           funds,
           match,
+          awarded,
           total,
         } satisfies StatsAward;
       }),
       (award) => award.total,
     );
 
-    const projectPrizes = sum(awards, (award) => award.projects);
-    const fundPrizes = sum(awards, (award) => award.funds);
+    const prizesProjects = sum(prizeRows, (row) => (blank(row['project']) ? 0 : num(row['prize earned usd'])));
+    const prizesTotal = sum(prizeRows, (row) => num(row['prize earned usd']));
+    const sprintPrizes = sum(
+      awards.filter((award) => award.type === 'Sales sprint'),
+      (award) => award.projects + award.funds,
+    );
     const matchBoosts = sum(awards, (award) => award.match);
+    const venusBuys = sum(venusRows, (row) => num(row['amount spent $USD']));
+    const venusStamps = compact(venusRows.map((row) => presence(row['Created Date']))).sort();
+
     return {
-      project_prizes: projectPrizes,
-      fund_prizes: fundPrizes,
+      prizes_projects: prizesProjects,
+      prizes_funds: prizesTotal - prizesProjects,
+      prizes_total: prizesTotal,
+      prize_winners: prizeRows.length,
+      sprint_prizes: sprintPrizes,
       match_boosts: matchBoosts,
-      total: projectPrizes + fundPrizes + matchBoosts,
+      venus_buys: venusBuys,
+      venus_purchases: venusRows.length,
+      venus_artifacts: sum(venusRows, (row) => num(row['number of artifacts purchased'])),
+      venus_match: sum(venusRows, (row) => num(row['match funding'])),
+      venus_first_at: venusStamps[0] || '',
+      venus_last_at: venusStamps[venusStamps.length - 1] || '',
+      total: prizesTotal + sprintPrizes + matchBoosts + venusBuys,
       match_unlocked: sum(projectSeasonRows, (row) => num(row['funding match']) + num(row['funding boost '])),
-      prize_unlocked: sum(projectSeasonRows, (row) => num(row['funding prize funds usd'])),
       awards,
     };
   }
@@ -927,6 +979,8 @@ export class Artizen {
     feeRows: Row[],
     projectSeasonRows: Row[],
     fundRows: Row[],
+    prizeRows: Row[],
+    venusRows: Row[],
   ): StatsSeasonRow[] {
     const totals: Record<string, StatsSeasonRow> = Object.fromEntries(
       seasons.map((season) => [
@@ -942,6 +996,8 @@ export class Artizen {
           projects: 0,
           endowment: 0,
           fees: 0,
+          prizes: 0,
+          venus: 0,
           art: 0,
           funds: 0,
         } satisfies StatsSeasonRow,
@@ -982,6 +1038,14 @@ export class Artizen {
       if (!season) continue;
 
       season.funds += num(row['amount $USD']);
+    }
+    for (const row of prizeRows) {
+      const season = seasonOf(row, 'season');
+      if (season) season.prizes += num(row['prize earned usd']);
+    }
+    for (const row of venusRows) {
+      const season = seasonOf(row, 'Season');
+      if (season) season.venus += num(row['amount spent $USD']);
     }
     return sortByDesc(Object.values(totals), (season) => season.number);
   }

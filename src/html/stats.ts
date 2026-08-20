@@ -143,6 +143,7 @@ function awardRows(awards: StatsAward[]): string {
         <td class="text-end" data-order="${award.projects}">${cash(award.projects)}</td>
         <td class="text-end" data-order="${award.funds}">${cash(award.funds)}</td>
         <td class="text-end" data-order="${award.match}">${cash(award.match)}</td>
+        <td class="text-end" data-order="${award.awarded}">${cash(award.awarded)}</td>
         <td class="text-end" data-order="${award.total}">${cash(award.total)}</td>
       </tr>`;
     })
@@ -159,6 +160,7 @@ function seasonRows(seasons: StatsSeasonRow[]): string {
         <td class="text-end">${cash(season.sales)}</td>
         <td class="text-end">${cash(season.match)}</td>
         <td class="text-end">${cash(season.prize)}</td>
+        <td class="text-end">${cash(season.venus)}</td>
         <td class="text-end">${cash(season.funds)}</td>
         <td class="text-end">${cash(season.endowment + season.fees)}</td>
         <td class="text-end">${season.art > 0 ? compactNum(season.art) : ''}</td>
@@ -226,12 +228,12 @@ export function renderStats(data: StatsPage): string {
       stat('Raised all time', usd(raised), 'Sum of every season total'),
       stat('Endowment in', usd(endowment.total), `${usd(endowment.contributed)} contributed, ${usd(endowment.fees)} from sales`),
       stat('ART issued', compactNum(art.issued), `${delimited(art.issued)} ART`),
-      stat('Prizes awarded', usd(spend.total), 'Prize pots and match boosts funded by Artizen'),
+      stat('Endowment out', usd(spend.total), 'Prizes, match boosts and Venus Artifact buys'),
     ])}
     ${note(
       `Everything here is aggregated from the public Artizen API and refreshed hourly. Money into the endowment is
-      confirmed contributions plus the 10% fee on Artifact sales; money out is the prize pots attached to fund
-      drives, sales sprints and match boosts.`,
+      confirmed contributions plus the 10% fee on Artifact sales; money out is prizes awarded on fund drives and
+      sprints, match boost pots, and Artifacts bought by the Venus house account.`,
     )}
   `);
 
@@ -256,15 +258,18 @@ export function renderStats(data: StatsPage): string {
   const spendPanel = panel(`
     <h2 class="artizen-panel-title">Endowment out</h2>
     ${statRow([
-      stat('Project prizes', usd(spend.project_prizes)),
-      stat('Fund prizes', usd(spend.fund_prizes)),
+      stat('Total out', usd(spend.total)),
+      stat('Drive prizes', usd(spend.prizes_total), `${usd(spend.prizes_projects)} to projects, ${usd(spend.prizes_funds)} to funds, across ${delimited(spend.prize_winners)} winners`),
+      stat('Sprint prizes', usd(spend.sprint_prizes), 'Advertised sales-sprint pots'),
       stat('Match boosts', usd(spend.match_boosts)),
-      stat('Total awarded', usd(spend.total)),
-      stat('Prizes unlocked', usd(spend.prize_unlocked), 'Prize money credited to projects'),
+      stat('Venus buys', usd(spend.venus_buys), `${delimited(spend.venus_purchases)} purchases, ${delimited(spend.venus_artifacts)} Artifacts`),
     ])}
     ${note(
-      `Match funding of ${usd(spend.match_unlocked)} has also been unlocked for projects, but that money comes from
-      sponsor matching funds rather than the endowment, so it is not counted as endowment spend.`,
+      `Fund-drive prizes are what participants actually earned, not the advertised pots. Sales sprints book no payout
+      record, so their advertised pots stand in. Venus — the Artizen house account — has bought ${usd(spend.venus_buys)}
+      of Artifacts since ${fmtDate(spend.venus_first_at, true)}, unlocking a further ${usd(spend.venus_match)} of match;
+      that is endowment money reaching projects as sales. Match funding of ${usd(spend.match_unlocked)} has also been
+      unlocked overall, but it comes from sponsor matching funds rather than the endowment, so it is not counted here.`,
     )}
     ${dtPlaceholder()}
     <table id="artizen-awards-table" class="table table-sm">
@@ -275,6 +280,7 @@ export function renderStats(data: StatsPage): string {
         <th class="text-end">Project prizes</th>
         <th class="text-end">Fund prizes</th>
         <th class="text-end">Match pot</th>
+        <th class="text-end">Awarded</th>
         <th class="text-end">Total</th>
       </tr></thead>
       <tbody>${awardRows(spend.awards)}</tbody>
@@ -314,6 +320,58 @@ export function renderStats(data: StatsPage): string {
     The August 2024 spike is a bulk import rather than organic signups.</p>
   `);
 
+  const checkRows: Array<[string, string, string, string]> = [
+    [
+      'Endowment in',
+      usd(endowment.total),
+      'endowmentcontribution + the endowment fee on transaction',
+      'https://artizen.fund/index/endowment',
+    ],
+    [
+      'Endowment out',
+      usd(spend.total),
+      'boostparticipant prizes, boost pots, Venus Artifact buys',
+      'https://artizen.fund/index/endowment',
+    ],
+    [
+      'ART issued',
+      `${compactNum(art.issued)} ART`,
+      'ART received on endowmentcontribution',
+      'https://artizen.fund/index/endowment',
+    ],
+    [
+      'Venus buys',
+      usd(spend.venus_buys),
+      'confirmed transaction rows bought by the Venus account',
+      'https://artizen.fund/index/profile/1774215063859x668765896046542800',
+    ],
+    ['Raised all time', usd(raised), 'total raised usd on season', 'https://artizen.fund/index/leaderboard'],
+    ['Users', delimited(users.accounts), 'useraccount records', ''],
+  ];
+  const crossCheck = panel(`
+    <h2 class="artizen-panel-title">Cross-check</h2>
+    ${note(
+      `Each headline figure, the API records behind it, and where to check it on artizen.fund. ART issued counts every
+      token the endowment has ever minted, so it reads higher than the ART pool shown on the endowment page — the
+      difference is ART that has since left the endowment.`,
+    )}
+    <div class="artizen-table-scroll">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Figure</th><th class="text-end">artizen.fyi</th><th>Built from</th><th>Check against</th></tr></thead>
+        <tbody>${checkRows
+          .map(
+            ([label, value, source, url]) => `<tr>
+              <td>${escapeHtml(label)}</td>
+              <td class="text-end text-nowrap">${escapeHtml(value)}</td>
+              <td class="small text-muted">${escapeHtml(source)}</td>
+              <td class="small">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">artizen.fund</a>` : ''}</td>
+            </tr>`,
+          )
+          .join('')}</tbody>
+      </table>
+    </div>
+  `);
+
   const seasonsPanel = panel(`
     <h2 class="artizen-panel-title">Seasons</h2>
     <div class="artizen-table-scroll">
@@ -324,6 +382,7 @@ export function renderStats(data: StatsPage): string {
           <th class="text-end">Sales</th>
           <th class="text-end">Match</th>
           <th class="text-end">Prize</th>
+          <th class="text-end">Venus</th>
           <th class="text-end">Into funds</th>
           <th class="text-end">Into endowment</th>
           <th class="text-end">ART</th>
@@ -336,8 +395,8 @@ export function renderStats(data: StatsPage): string {
   return layout({
     title: 'Stats · artizen.fyi',
     description: 'Platform-wide Artizen stats: endowment flows, ART issuance and user growth',
-    body: headline + endowmentPanel + spendPanel + artPanel + usersPanel + seasonsPanel,
-    extra: chartScript(charts) + datatable('artizen-awards-table', [[6, 'desc']], [3, 4, 5, 6], { paging: false, info: false }),
+    body: headline + endowmentPanel + spendPanel + artPanel + usersPanel + seasonsPanel + crossCheck,
+    extra: chartScript(charts) + datatable('artizen-awards-table', [[7, 'desc']], [3, 4, 5, 6, 7], { paging: false, info: false }),
     chart: charts.length > 0,
     datatables: true,
     stats: true,
