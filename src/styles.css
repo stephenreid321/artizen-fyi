@@ -9,6 +9,7 @@
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
+  --artizen-nav-height: calc(1.4rem + 2.4rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
   --bs-link-color: var(--green-deep);
@@ -29,6 +30,7 @@
   --bs-body-bg: var(--paper);
   --bs-body-font-family: RocGroteskMedium, Helvetica, Arial, sans-serif;
   --bs-heading-font-family: RocGroteskBold, Helvetica, Arial, sans-serif;
+  --bs-subtitle-font-family: P22Mackinac-Medium_6, Georgia, 'Times New Roman', serif;
   --bs-border-color: var(--line);
   --bs-secondary-rgb: 134, 144, 160;
 }
@@ -52,7 +54,8 @@ a { color: var(--green-deep); text-underline-offset: 0.15em; }
 a:hover { color: #058a48; }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
-.lead { font-family: var(--bs-heading-font-family); font-weight: 400; color: var(--muted); }
+.lead, .artizen-subtitle { font-family: var(--bs-subtitle-font-family); font-weight: 400; }
+.lead { color: var(--muted); }
 .form-select {
   background-color: var(--panel);
   border-color: var(--line);
@@ -83,12 +86,36 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .card-body { padding: 1.15rem 1.25rem 1.3rem; }
 .table { --bs-table-bg: transparent; font-size: 0.9rem; }
 .table > :not(caption) > * > * { background: transparent; }
-.dt-container .dt-search input, .dt-container .dt-length select {
-  background: var(--panel);
+.dt-container .dt-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: min(22rem, 100%);
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--ink);
+  padding: 0.32rem 0.85rem;
+  background: var(--paper);
 }
+.dt-container .dt-search .bi { color: var(--muted); font-size: 0.95rem; }
+.dt-container .dt-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  outline: none;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+}
+.dt-container .dt-search input:focus {
+  box-shadow: none;
+  border-color: transparent;
+}
+.dt-container .dt-search input::placeholder { color: var(--muted); }
 .page-link, .dt-container .dt-paging .dt-paging-button .page-link {
   color: var(--ink);
   border-radius: 999px;
@@ -153,12 +180,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   --bs-offcanvas-color: var(--ink);
   --bs-offcanvas-border-color: var(--line);
 }
-.offcanvas-title {
-  font-family: var(--bs-heading-font-family);
-  font-weight: 400;
-  font-size: 1.45rem;
-  letter-spacing: -0.02em;
-}
+.offcanvas-header .artizen-wordmark { font-size: 1.45rem; }
 .artizen-offcanvas-nav a {
   display: block;
   padding: 0.7rem 0.85rem;
@@ -173,7 +195,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 @media (max-width: 767px) {
   .artizen-nav-inner { grid-template-columns: auto auto 1fr; gap: 0.75rem; }
   .artizen-nav .artizen-wordmark { justify-self: start; }
-  .artizen-search input::placeholder { color: transparent; opacity: 0; }
 }
 .artizen-search {
   display: flex;
@@ -243,6 +264,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   }
   .artizen-nav-pill { font-size: 0.8rem; padding: 0.32rem 0.65rem; }
   .artizen-nav-toggle { width: 2.15rem; height: 2.15rem; font-size: 1.4rem; }
+  .artizen-nav .artizen-wordmark { font-size: 1.2rem; }
   .artizen-search { width: 100%; }
 }
 .artizen-footer {
@@ -274,7 +296,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   box-shadow: var(--shadow);
   padding: 1.2rem 1.35rem 1.4rem;
   margin-bottom: 1rem;
-  overflow: hidden;
+  overflow: clip;
 }
 .artizen-panel-flush { padding: 0; }
 .artizen-panel-flush .artizen-hero {
@@ -315,6 +337,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   color: var(--ink);
   text-decoration: none;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 .artizen-wordmark:hover { color: var(--ink); }
 .artizen-wordmark .bi {
@@ -327,7 +350,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
-  flex-wrap: wrap;
+  flex-wrap: wrap-reverse;
 }
 .artizen-toolbar {
   display: flex;
@@ -408,15 +431,31 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-badge-sm { font-size: 0.7rem; font-weight: 600; vertical-align: middle; position: relative; top: -0.12em; }
 .artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: #000; }
 .artizen-drive-thumb { width: 100%; height: 140px; object-fit: cover; background: #202222; }
-.artizen-podium { font-size: 0.75rem; }
-.artizen-podium td:first-child { padding-right: 0.5rem; }
+.artizen-podium {
+  font-size: 0.75rem;
+  width: 100%;
+  table-layout: fixed;
+}
+.artizen-podium th:first-child,
+.artizen-podium td:first-child { width: 40%; padding-right: 0.5rem; }
+.artizen-podium th:nth-child(n+2),
+.artizen-podium td:nth-child(n+2) {
+  width: 8.5%;
+  white-space: nowrap;
+}
+.artizen-podium-op {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 400;
+}
+.artizen-podium-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .artizen-hero-card {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
   gap: 1.15rem 1.25rem;
   align-items: start;
 }
-.artizen-hero-copy h1:first-child { margin-top: 0; }
+.artizen-hero-copy h1:first-child { margin-top: 0; margin-bottom: 0; }
 .artizen-hero-copy .lead { margin-bottom: 0.35rem; }
 .artizen-hero {
   width: 100%;
@@ -444,20 +483,19 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-dt-placeholder {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin: 0.65rem 0 0.5rem;
 }
 .artizen-dt-ph {
   display: block;
-  font-size: 0.875rem;
-  height: calc(1.5em + 0.5rem + 2px);
+  font-size: 0.92rem;
+  height: calc(1.5em + 0.64rem + 2px);
   border-radius: 999px;
   background: var(--paper);
   animation: artizen-pulse 1.15s ease-in-out infinite;
 }
-.artizen-dt-ph-length { width: 13rem; flex: 0 0 13rem; }
-.artizen-dt-ph-search { width: 15.5rem; max-width: 100%; }
+.artizen-dt-ph-search { width: min(22rem, 100%); box-sizing: border-box; }
 @keyframes artizen-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
@@ -465,17 +503,12 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 @media (prefers-reduced-motion: reduce) {
   .artizen-dt-ph { animation: none; opacity: 0.7; }
 }
-#artizen-projects-table { table-layout: fixed; width: 100%; min-width: 68rem; border-collapse: collapse; border-spacing: 0; }
+#artizen-projects-table { table-layout: fixed; width: 100%; min-width: 80rem; border-collapse: collapse; border-spacing: 0; }
 .artizen-table-scroll { -webkit-overflow-scrolling: touch; }
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {
-  .artizen-dt-placeholder {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .artizen-dt-ph-length { flex-basis: auto; width: 100%; }
-  .artizen-dt-ph-search { width: 100%; }
-  div.dt-container div.dt-length,
+  .artizen-dt-ph-search,
+  .dt-container .dt-search { width: 100%; }
   div.dt-container div.dt-search,
   div.dt-container div.dt-info,
   div.dt-container div.dt-paging {
@@ -489,12 +522,22 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   .artizen-table-scroll { overflow-x: auto; }
   #artizen-projects-table thead th, #artizen-funds-table thead th, #artizen-boosts-table thead th { position: static; box-shadow: none; }
 }
-#artizen-projects-table .artizen-heat { width: 7.4%; box-sizing: border-box; }
+#artizen-projects-table .artizen-heat {
+  width: 6%;
+  box-sizing: border-box;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+#artizen-projects-table thead .artizen-heat {
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: normal;
+}
 #artizen-projects-table td.artizen-heat { white-space: nowrap; }
 #artizen-projects-table td, #artizen-projects-table th { border: none !important; }
 #artizen-projects-table td, #artizen-funds-table td, #artizen-boosts-table td, #artizen-projects-table th, #artizen-funds-table th, #artizen-boosts-table th { vertical-align: middle; }
 #artizen-projects-table thead th, #artizen-funds-table thead th, #artizen-boosts-table thead th {
-  position: sticky; top: 0; z-index: 2;
+  position: sticky; top: var(--artizen-nav-height); z-index: 2;
   background: var(--panel);
   box-shadow: 0 1px 0 var(--line);
   font-family: var(--bs-heading-font-family);
@@ -506,12 +549,30 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-tree-hidden { display: none !important; }
 .artizen-funding-tree td, .artizen-funding-tree th { vertical-align: top; }
+.artizen-funding-tree td:not(:first-child),
+.artizen-funding-tree th:not(:first-child) {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.artizen-funding-tree thead th:not(:first-child) {
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: normal;
+}
 .artizen-tree-toggle { color: inherit; width: 1.15rem; display: inline-block; text-align: center; line-height: 1; vertical-align: top; }
 .artizen-tree-toggle:hover, .artizen-tree-toggle:focus { color: inherit; text-decoration: none; }
-.artizen-tree-label { display: inline-block; vertical-align: top; max-width: calc(100% - 1.4rem); }
+.artizen-tree-label { display: inline-block; vertical-align: top; }
 .artizen-tree-drive td:first-child, .artizen-tree-submission td:first-child { padding-left: 1.5rem; }
 .artizen-tree-fund td:first-child, .artizen-tree-project td:first-child { padding-left: 2.75rem; }
 .artizen-tree-adjust td { font-style: italic; color: var(--muted); }
+.artizen-prize-projected {
+  font-family: var(--bs-heading-font-family);
+  font-style: italic;
+  color: var(--muted);
+  cursor: help;
+}
 .artizen-tree-season td { font-family: var(--bs-heading-font-family); }
 .artizen-holder { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; }
 .artizen-holder-avatar {

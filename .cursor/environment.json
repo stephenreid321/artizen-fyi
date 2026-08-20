@@ -1,0 +1,14 @@
+{
+  "name": "artizen-fyi",
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "wrangler dev",
+      "command": "npm run dev",
+      "description": "Local Cloudflare Worker on http://localhost:8787 with local KV. On localhost the Worker fills its KV cache from the live Bubble API on first page load, so the first /projects request crawls (~10-60s) and later requests read KV."
+    }
+  ],
+  "ports": [
+    { "name": "wrangler dev", "port": 8787 }
+  ]
+}

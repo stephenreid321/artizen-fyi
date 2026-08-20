@@ -81,7 +81,7 @@ export function layout(opts: {
     .filter(Boolean)
     .join('\n  ');
   const js = [
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});</script>',
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});(function(){var nav=document.querySelector(".artizen-nav");var q=document.getElementById("artizen-q");var long="Search projects and funds";function sync(){if(nav)document.documentElement.style.setProperty("--artizen-nav-height",nav.offsetHeight+"px");if(q)q.placeholder=window.matchMedia("(max-width: 767px)").matches?"Search":long;}sync();window.addEventListener("resize",sync);})();</script>',
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',
@@ -113,6 +113,7 @@ export function layout(opts: {
   ${css}
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669921386747x462861532157019100/RocGroteskBold.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1670009029268x384309142695173700/RocGroteskMedium.css">
+  <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669919682183x184427803987397440/P22Mackinac-Medium_6.css">
   <style>${styles}</style>
 </head>
 <body>
@@ -147,12 +148,12 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
         <i class="bi bi-list" aria-hidden="true"></i>
       </button>
     </div>
-    <a class="artizen-wordmark" href="${boardsHref}" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span class="d-none d-md-inline">artizen.fyi</span></a>
+    <a class="artizen-wordmark" href="${boardsHref}" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>artizen.fyi</span></a>
     <div class="artizen-nav-side artizen-nav-side-end">
       <form class="artizen-search" action="/search" method="get" role="search">
         <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
         <i class="bi bi-search" aria-hidden="true"></i>
-        <input id="artizen-q" type="search" name="q" placeholder="Search projects and funds" value="${escapeHtml(query || '')}" autocomplete="off">
+        <input id="artizen-q" type="search" name="q" placeholder="Search" value="${escapeHtml(query || '')}" autocomplete="off">
         ${seasonField}
       </form>
     </div>
@@ -160,7 +161,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
 </header>
 <div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
   <div class="offcanvas-header">
-    <h2 class="offcanvas-title" id="artizen-nav-offcanvas-label">Menu</h2>
+    <a class="artizen-wordmark" href="${boardsHref}" id="artizen-nav-offcanvas-label" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>artizen.fyi</span></a>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
   <div class="offcanvas-body">
@@ -179,7 +180,6 @@ const FOOTER = `
   <div class="artizen-footer-inner">
     <p>
       This is a project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>
-      (<a href="https://stephenreid.net" target="_blank" rel="noopener">stephenreid.net</a>)
       and is not affiliated with Artizen.
     </p>
     <p>
@@ -215,7 +215,6 @@ export function heroSplit(image: string | null | undefined, alt: string, copy: s
 
 export function dtPlaceholder(): string {
   return `<div class="artizen-dt-placeholder" aria-hidden="true">
-    <span class="artizen-dt-ph artizen-dt-ph-length"></span>
     <span class="artizen-dt-ph artizen-dt-ph-search"></span>
   </div>`;
 }
@@ -224,12 +223,21 @@ export function datatable(
   tableId: string,
   order: Array<[number, string]>,
   numeric: number[],
-  opts?: { pageLength?: number; lengthMenu?: number[]; paging?: boolean; info?: boolean },
+  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string },
 ): string {
   const pageLength = opts?.pageLength ?? 25;
-  const lengthMenu = opts?.lengthMenu ?? [10, 25, 50, 100];
   const paging = opts?.paging ?? true;
   const info = opts?.info ?? true;
+  const noun = opts?.noun ?? 'entries';
+  const language = {
+    search: '_INPUT_',
+    searchPlaceholder: `Search ${noun}`,
+    info: `Showing _START_ to _END_ of _TOTAL_ ${noun}`,
+    infoEmpty: `No ${noun}`,
+    infoFiltered: `(filtered from _MAX_ total ${noun})`,
+    zeroRecords: `No matching ${noun}`,
+    emptyTable: `No ${noun}`,
+  };
   return `<script>
     document.addEventListener('DOMContentLoaded', function() {
       var table = document.getElementById('${tableId}');
@@ -238,19 +246,34 @@ export function datatable(
       new DataTable(table, {
         paging: ${paging},
         pageLength: ${pageLength},
-        lengthMenu: ${JSON.stringify(lengthMenu)},
-        lengthChange: ${paging},
+        lengthChange: false,
         searching: true,
         info: ${info},
         autoWidth: false,
         order: ${JSON.stringify(order)},
-        columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }]
+        columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }],
+        layout: {
+          topStart: null,
+          topEnd: 'search',
+          bottomStart: ${info ? "'info'" : 'null'},
+          bottomEnd: ${paging ? "'paging'" : 'null'}
+        },
+        language: ${JSON.stringify(language)}
       });
       var phEl = ph && ph.classList.contains('artizen-dt-placeholder') ? ph : null;
       if (phEl) phEl.remove();
       var wrap = document.createElement('div');
       wrap.className = 'artizen-table-scroll';
       var container = table.closest('.dt-container') || table;
+      var searchBox = container.querySelector('.dt-search');
+      var searchInput = searchBox && searchBox.querySelector('input');
+      if (searchBox && searchInput && !searchBox.querySelector('.bi-search')) {
+        var icon = document.createElement('i');
+        icon.className = 'bi bi-search';
+        icon.setAttribute('aria-hidden', 'true');
+        searchBox.insertBefore(icon, searchInput);
+        searchInput.setAttribute('aria-label', ${JSON.stringify(`Search ${noun}`)});
+      }
       container.parentNode.insertBefore(wrap, container);
       wrap.appendChild(container);
     });
@@ -312,7 +335,7 @@ export function namedLink(url: string, name: string): string {
 }
 
 function chevron(open: boolean, hasKids: boolean): string {
-  if (!hasKids) return '<span class="artizen-tree-toggle"></span>';
+  if (!hasKids) return '';
   return `<a href="#" class="artizen-tree-toggle" aria-expanded="${open}"><i class="bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}"></i></a>`;
 }
 
@@ -333,8 +356,9 @@ export function treeRow(opts: {
   ]
     .filter(Boolean)
     .join(' ');
+  const mark = chevron(opts.open ?? false, opts.hasKids ?? false);
   return `<tr class="${cls}"${attrs ? ` ${attrs}` : ''}>
-    <td>${chevron(opts.open ?? false, opts.hasKids ?? false)} ${opts.label}</td>
+    <td>${mark}${mark ? ' ' : ''}${opts.label}</td>
     ${opts.cells}
   </tr>`;
 }

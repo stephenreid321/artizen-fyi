@@ -15,7 +15,7 @@ export function renderProject(project: ProjectPage): string {
       ${heroSplit(
         project.image,
         project.name,
-        `<h1 class="mb-2">${escapeHtml(project.name)}</h1>
+        `<h1>${escapeHtml(project.name)}</h1>
           ${project.logline ? `<p class="lead">${escapeHtml(project.logline)}</p>` : ''}
           ${tags ? `<div class="mb-2">${tags}</div>` : ''}
           <p class="mb-0"><a href="${escapeHtml(project.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
@@ -81,6 +81,7 @@ function projectFundingTable(project: ProjectPage): string {
     venus: sumField(project.seasons, 'venus'),
     match: sumField(project.seasons, 'match'),
     prize: sumField(project.seasons, 'prize'),
+    sprint: sumField(project.seasons, 'sprint'),
     raised: sumField(project.seasons, 'raised'),
   };
   return panel(`

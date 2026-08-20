@@ -1,15 +1,19 @@
 import type { ProjectRow } from './artizen';
 
 export type Funded = ProjectRow & {
+  sv: number;
+  svm: number;
   vmp: number;
   multiple_v?: number;
   multiple_ex?: number;
+  multiple_vme?: number;
   multiple?: number;
 };
 
-export function usd(value?: number | null): string {
+export function usd(value?: number | null, blankZero = false): string {
   if (value == null || Number.isNaN(Number(value))) return '';
   const n = Number(value);
+  if (blankZero && n === 0) return '';
   const precision = Math.abs(n) >= 100 ? 0 : 2;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -26,7 +30,10 @@ export function compactNum(value?: number | null): string {
   const sign = n < 0 ? '-' : '';
   let suffix = '';
   let div = 1;
-  if (a >= 1_000_000) {
+  if (a >= 1_000_000_000) {
+    suffix = 'b';
+    div = 1_000_000_000;
+  } else if (a >= 1_000_000) {
     suffix = 'm';
     div = 1_000_000;
   } else if (a >= 1_000) {
@@ -55,23 +62,31 @@ export function funding(row: ProjectRow): Funded {
   const venus = Number(row.venus) || 0;
   const match = Number(row.match) || 0;
   const prize = Number(row.prize) || 0;
-  const vmp = venus + match + prize;
+  const sprint = Number(row.sprint) || 0;
+  const sv = sales + venus;
+  const svm = sv + match;
+  const vmp = venus + match + sprint + prize;
   return {
     ...row,
     sales,
     venus,
     match,
     prize,
+    sprint,
+    sv,
+    svm,
     vmp,
-    multiple_v: sales > 0 ? venus / sales : undefined,
-    multiple_ex: sales > 0 ? (venus + match) / sales : undefined,
-    multiple: sales > 0 ? vmp / sales : undefined,
+    multiple_v: sales !== 0 ? venus / sales : undefined,
+    multiple_ex: sales !== 0 ? (venus + match) / sales : undefined,
+    multiple_vme: sales !== 0 ? (venus + match + sprint) / sales : undefined,
+    multiple: sales !== 0 ? (venus + match + sprint + prize) / sales : undefined,
     raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
 
 export function multipleLabel(multiple?: number): string {
-  return multiple == null ? '' : `${multiple.toFixed(1)}x`;
+  if (multiple == null || multiple === 0) return '';
+  return `${multiple.toFixed(1)}x`;
 }
 
 export type MoneyFormat = 'usd' | 'x';
@@ -85,12 +100,16 @@ export type MoneyCol = {
 export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sales', label: 'Sales', as: 'usd' },
   { field: 'venus', label: 'Venus', as: 'usd' },
+  { field: 'sv', label: 'S+V', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
+  { field: 'svm', label: 'S+V+M', as: 'usd' },
+  { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
-  { field: 'vmp', label: 'V+M+P', as: 'usd' },
+  { field: 'vmp', label: 'V+M+E+P', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },
   { field: 'multiple_ex', label: '(V+M)/S', as: 'x' },
-  { field: 'multiple', label: '(V+M+P)/S', as: 'x' },
+  { field: 'multiple_vme', label: '(V+M+E)/S', as: 'x' },
+  { field: 'multiple', label: '(V+M+E+P)/S', as: 'x' },
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
@@ -102,6 +121,7 @@ type MoneyRow = {
   venus?: number | null;
   match?: number | null;
   prize?: number | null;
+  sprint?: number | null;
   raised?: number | null;
 };
 
@@ -113,6 +133,7 @@ function funded(row: MoneyRow): Funded {
     venus: row.venus ?? 0,
     match: row.match ?? 0,
     prize: row.prize ?? 0,
+    sprint: row.sprint ?? 0,
     raised: row.raised ?? 0,
   });
 }
@@ -121,8 +142,19 @@ function endCell(content: string, tag: string): string {
   return `<${tag} class="text-end">${content}</${tag}>`;
 }
 
+function projectedLabel(label: string, title = 'Projected prize — not yet earned'): string {
+  if (!label) return label;
+  return `<span class="artizen-prize-projected" data-bs-toggle="tooltip" data-bs-container="body" data-bs-title="${title}" tabindex="0">${label}</span>`;
+}
+
+export function prizeLabel(value?: number | null, projected = false): string {
+  const label = usd(value, true);
+  return projected ? projectedLabel(label) : label;
+}
+
 function moneyLabel(row: Funded, col: MoneyCol): string {
-  return col.as === 'x' ? multipleLabel(row[col.field] as number | undefined) : usd(row[col.field] as number);
+  if (col.as === 'x') return multipleLabel(row[col.field] as number | undefined);
+  return usd(row[col.field] as number, true);
 }
 
 export function moneyHeaders(className = 'text-end'): string {
@@ -178,9 +210,10 @@ export function heatTd(
 ): string {
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
-  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value);
-  const note = pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  return `<td class="text-end artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
+  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, true);
+  const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
+  const heat = label ? rankStyle(pct) : 'background-color: #fff';
+  return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

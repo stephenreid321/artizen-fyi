@@ -1,5 +1,5 @@
 import type { Drive, Leaderboard } from '../artizen';
-import { compactNum, delimited, fmtDate, truncate, usd } from '../format';
+import { compactNum, delimited, fmtDate, prizeLabel, truncate, usd } from '../format';
 import { board, boardEmpty, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
@@ -108,10 +108,11 @@ function driveCard(drive: Drive): string {
   const matchPer = drive.match_per_project
     ? `<div class="artizen-stat"><span>Match / project</span><strong>${usd(drive.match_per_project)}</strong></div>`
     : '';
+  const kind = drive.active ? 'Leading' : 'Winning';
   const podiums = (
     [
-      ['Winning projects', drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
-      ['Winning funds', drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
+      [`${kind} projects`, drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
+      [`${kind} funds`, drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
     ] as const
   )
     .map(([title, podium, prizes]) => {
@@ -120,19 +121,24 @@ function driveCard(drive: Drive): string {
         .map(
           (row, i) => `<tr>
             <td><span class="text-muted">${i + 1}.</span> ${namedLink(row.url, row.name)}</td>
-            <td class="text-end text-nowrap">${usd(prizes[i])}</td>
             <td class="text-end text-nowrap">${usd(row.sales_match)}</td>
+            <td class="artizen-podium-op">x</td>
             <td class="text-end text-nowrap">${delimited(row.points)}</td>
+            <td class="artizen-podium-op">=</td>
             <td class="text-end text-nowrap">${compactNum(row.score)}</td>
+            <td class="artizen-podium-op">→</td>
+            <td class="text-end text-nowrap">${prizeLabel(prizes[i], drive.active)}</td>
           </tr>`,
         )
         .join('');
       return `<div class="artizen-nested">
         <h2 class="artizen-panel-title">${title}</h2>
-        <table class="table table-sm mb-0 artizen-podium">
-          <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Sales+match</th><th class="text-end">Points</th><th class="text-end">Score</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div class="artizen-podium-scroll">
+          <table class="table table-sm mb-0 artizen-podium">
+            <thead><tr><th></th><th class="text-end">Raised</th><th class="artizen-podium-op">x</th><th class="text-end">Boosts</th><th class="artizen-podium-op">=</th><th class="text-end">Score</th><th class="artizen-podium-op">→</th><th class="text-end">Prize</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`;
     })
     .join('');

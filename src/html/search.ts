@@ -23,7 +23,7 @@ function rank(query: string, name: string): number {
 }
 
 function resultCard(kind: 'Project' | 'Fund', name: string, url: string, detail?: string): string {
-  const sub = detail ? `<p class="text-muted small mb-0">${escapeHtml(truncate(detail, 120))}</p>` : '';
+  const sub = detail ? `<p class="text-muted small artizen-subtitle mb-0">${escapeHtml(truncate(detail, 120))}</p>` : '';
   return `<a class="artizen-result card mb-3" href="${escapeHtml(url)}">
     <div class="card-body">
       <span class="badge artizen-kind-${kind.toLowerCase()} mb-2">${kind}</span>

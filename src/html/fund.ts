@@ -18,7 +18,7 @@ export function renderFund(fund: FundPage): string {
       ${heroSplit(
         fund.image,
         fund.name,
-        `<h1 class="mb-2">${escapeHtml(fund.name)}</h1>
+        `<h1>${escapeHtml(fund.name)}</h1>
           ${fund.subtitle ? `<p class="lead">${escapeHtml(fund.subtitle)}</p>` : ''}
           ${fund.sponsor ? `<p>Lead sponsor: ${escapeHtml(fund.sponsor)}</p>` : ''}
           <div class="mb-2">${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}${prize}</div>
@@ -90,7 +90,6 @@ function fundFundingTable(fund: FundPage): string {
                 label: `<span class="artizen-tree-label">
                     ${namedLink(project.url, project.name)}
                     ${project.hidden ? ' <span class="badge text-bg-secondary">hidden</span>' : ''}
-                    ${project.creator ? `<br><small class="text-muted">${escapeHtml(project.creator)}</small>` : ''}
                   </span>`,
                 cells: fundCells(
                   '',

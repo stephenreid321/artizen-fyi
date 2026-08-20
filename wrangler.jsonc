@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",
   "workers_dev": true,
+  "dev": { "host": "localhost" },
   "observability": { "enabled": true },
   "limits": {
     "cpu_ms": 300000,

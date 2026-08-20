@@ -15,8 +15,6 @@ import {
   renderStats,
 } from './html';
 
-type Bindings = Env & { REFRESH_SECRET?: string };
-
 const BOARDS = {
   '/projects': renderProjects,
   '/funds': renderFunds,
@@ -35,7 +33,7 @@ function detail<T>(data: T | null, render: (data: T) => string): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Bindings): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.hostname === 'www.artizen.fyi') {
       url.hostname = 'artizen.fyi';
@@ -66,7 +64,7 @@ export default {
       });
     }
 
-    const artizen = new Artizen(env.CACHE);
+    const artizen = new Artizen(env.CACHE, url.hostname === 'localhost');
 
     if (request.method === 'GET' && path === '/') {
       const location = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
@@ -99,14 +97,6 @@ export default {
     const fund = path.match(/^\/funds\/([^/]+)$/);
     if (request.method === 'GET' && fund) {
       return detail(await artizen.fund(decodeURIComponent(fund[1])), renderFund);
-    }
-
-    if (request.method === 'POST' && path === '/refresh') {
-      const secret = env.REFRESH_SECRET;
-      if (!secret) return new Response('Not found', { status: 404 });
-      const auth = request.headers.get('authorization') || '';
-      if (auth !== `Bearer ${secret}`) return new Response('Unauthorized\n', { status: 401 });
-      return new Response(`${await artizen.refreshCache()}\n`);
     }
 
     return html(renderNotFound(), 404);

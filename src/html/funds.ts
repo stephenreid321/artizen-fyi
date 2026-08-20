@@ -40,8 +40,8 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
         <tbody>${body}</tbody>
       </table>`);
     extra = current
-      ? datatable('artizen-funds-table', [[3, 'desc']], [1, 2, 3, 4])
-      : datatable('artizen-funds-table', [[1, 'desc']], [1]);
+      ? datatable('artizen-funds-table', [[3, 'desc']], [1, 2, 3, 4], { noun: 'funds' })
+      : datatable('artizen-funds-table', [[1, 'desc']], [1], { noun: 'funds' });
   }
   return layout({
     title: pageTitle(data),

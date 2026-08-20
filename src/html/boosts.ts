@@ -33,7 +33,7 @@ export function renderBoosts(boosts: BoostsPage): string {
         const admin = holder.admin ? ' <span class="badge text-bg-secondary artizen-badge-sm">admin</span>' : '';
         return `<tr>
           <td>
-            <span class="artizen-holder">${avatar}<strong><a href="${escapeHtml(holder.url)}" class="text-dark" target="_blank" rel="noopener">${escapeHtml(holder.name)}</a></strong>${admin}</span>
+            <span class="artizen-holder">${avatar}<strong>${escapeHtml(holder.name)}</strong>${admin}</span>
           </td>
           <td class="text-end" data-order="${holder.points}">${delimited(holder.points)}</td>
           <td class="text-end" data-order="${holder.share}">${pct(holder.share)}</td>
@@ -85,6 +85,7 @@ export function renderBoosts(boosts: BoostsPage): string {
     extra = datatable('artizen-boosts-table', [[1, 'desc']], [1, 2, 3], {
       paging: false,
       info: false,
+      noun: 'holders',
     });
   }
   return layout({
