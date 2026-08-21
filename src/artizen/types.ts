@@ -155,6 +155,15 @@ export type ProjectSubmission = {
   created_at: unknown;
 };
 
+export type SuggestedFund = {
+  name: string;
+  url: string;
+  subtitle?: string;
+  available?: number;
+  sharedProjects: number;
+  connectingFund: string;
+};
+
 export type ProjectPage = {
   name: string;
   artizen_url: string;
@@ -164,6 +173,7 @@ export type ProjectPage = {
   tags: string[];
   seasons: ProjectFundingSeason[];
   submissions: ProjectSubmission[];
+  suggestedFunds?: SuggestedFund[];
 };
 
 export type FundMatchedProject = {

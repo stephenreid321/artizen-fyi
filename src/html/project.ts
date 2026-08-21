@@ -1,10 +1,11 @@
-import type { ProjectPage, ProjectSubmission } from '../artizen';
+import type { ProjectPage, ProjectSubmission, SuggestedFund } from '../artizen';
 import { MONEY_COLS, moneyCells, moneyHeaders, usd } from '../format';
-import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
+import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, resultCard, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
   const fundingTable = project.seasons.length ? projectFundingTable(project) : '';
+  const suggested = project.suggestedFunds?.length ? suggestedFundsPanel(project.suggestedFunds) : '';
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
   return layout({
     title: project.name,
@@ -21,9 +22,22 @@ export function renderProject(project: ProjectPage): string {
           ${artizenLinks(project.artizen_url)}`,
       )}
       ${fundingTable}
+      ${suggested}
       ${submissions}
     `,
   });
+}
+
+function suggestedFundsPanel(funds: SuggestedFund[]): string {
+  const cards = funds
+    .map((fund) => {
+      const available = Number(fund.available) > 0 ? `${usd(fund.available)} available` : '';
+      const noun = fund.sharedProjects === 1 ? 'project' : 'projects';
+      const reason = `Also on ${fund.sharedProjects} ${noun} in ${fund.connectingFund}`;
+      return resultCard('Fund', fund.name, fund.url, [fund.subtitle || '', available, reason].filter(Boolean));
+    })
+    .join('');
+  return panel(`<h2 class="artizen-panel-title">Suggested funds</h2>${cards}`);
 }
 
 function projectFundingTable(project: ProjectPage): string {

@@ -1,5 +1,5 @@
 import type { DetailPreview, Leaderboard } from '../artizen';
-import { fmtDate, usd } from '../format';
+import { fmtDate, truncate, usd } from '../format';
 import styles from '../styles.css';
 
 export function escapeHtml(value: unknown): string {
@@ -478,6 +478,23 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
 
 export function namedLink(url: string, name: string): string {
   return `<a href="${escapeHtml(url)}" class="text-dark">${escapeHtml(name)}</a>`;
+}
+
+export function resultCard(kind: 'Project' | 'Fund', name: string, url: string, detail?: string | string[]): string {
+  const lines = (Array.isArray(detail) ? detail : detail ? [detail] : []).filter((line) => line);
+  const sub = lines
+    .map((line, i) => {
+      const cls = i === 0 ? 'text-muted small artizen-subtitle mb-0' : 'text-muted small mb-0';
+      return `<p class="${cls}">${escapeHtml(truncate(line, 120))}</p>`;
+    })
+    .join('');
+  return `<a class="artizen-result card mb-3" href="${escapeHtml(url)}">
+    <div class="card-body">
+      <span class="badge artizen-kind-${kind.toLowerCase()} mb-2">${kind}</span>
+      <h2 class="artizen-result-title mb-1">${escapeHtml(name)}</h2>
+      ${sub}
+    </div>
+  </a>`;
 }
 
 export function artizenLinks(artizenUrl: string): string {

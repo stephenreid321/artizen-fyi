@@ -21,4 +21,5 @@ export type {
   ProjectSubmission,
   Row,
   Season,
+  SuggestedFund,
 } from './artizen/types';

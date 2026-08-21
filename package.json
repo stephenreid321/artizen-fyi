@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "kv:create": "wrangler kv namespace create CACHE",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "test": "npx --yes tsx --test src/artizen/suggest.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
