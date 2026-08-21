@@ -1,6 +1,5 @@
 import type { FundRow, Leaderboard, ProjectRow } from '../artizen';
-import { truncate } from '../format';
-import { escapeHtml, layout, note, pageTitle, panel } from './layout';
+import { escapeHtml, layout, note, pageTitle, panel, resultCard } from './layout';
 
 function haystack(...parts: unknown[]): string {
   return parts
@@ -20,17 +19,6 @@ function rank(query: string, name: string): number {
   if (n === needle) return 0;
   if (n.startsWith(needle)) return 1;
   return 2;
-}
-
-function resultCard(kind: 'Project' | 'Fund', name: string, url: string, detail?: string): string {
-  const sub = detail ? `<p class="text-muted small artizen-subtitle mb-0">${escapeHtml(truncate(detail, 120))}</p>` : '';
-  return `<a class="artizen-result card mb-3" href="${escapeHtml(url)}">
-    <div class="card-body">
-      <span class="badge artizen-kind-${kind.toLowerCase()} mb-2">${kind}</span>
-      <h2 class="artizen-result-title mb-1">${escapeHtml(name)}</h2>
-      ${sub}
-    </div>
-  </a>`;
 }
 
 function resultCol(title: string, count: number, cards: string): string {

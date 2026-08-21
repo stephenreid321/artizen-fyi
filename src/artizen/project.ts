@@ -1,5 +1,6 @@
 import type { Bubble } from './bubble';
 import { appendLegacyProjectSeasons, applyLegacySubmissionAwards } from './legacy';
+import { suggestFunds } from './suggest';
 import type {
   Drive,
   DriveStat,
@@ -10,6 +11,7 @@ import type {
   ProjectSubmission,
   Row,
   Season,
+  SuggestedFund,
 } from './types';
 import {
   LEAD_CREATOR,
@@ -174,6 +176,8 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
   appendLegacyProjectSeasons(seasons, row, seasonsMeta);
   applyLegacySubmissionAwards(seasons, submissionRows, seasonsMeta);
   sortByDesc(seasons, (s) => s.number || 0);
+  const submissions = await formatProjectSubmissions(client, submissionRows, seasonsMeta);
+  const suggested = await projectSuggestedFunds(client, id, slices, submissionRows, fundsById);
   return {
     name: text(row['Name']) ?? '',
     artizen_url: projectUrl(slugValue),
@@ -182,8 +186,41 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     image: projectImage(row, seasonRows, artifacts, seasonsMeta),
     tags,
     seasons: nestProjectFunding(seasons, driveDetails, matchingFunds),
-    submissions: await formatProjectSubmissions(client, submissionRows, seasonsMeta),
+    submissions,
+    ...(suggested.length ? { suggestedFunds: suggested } : {}),
   };
+}
+
+async function projectSuggestedFunds(
+  client: Bubble,
+  projectId: string,
+  slices: Row[],
+  submissionRows: Row[],
+  fundsById: Record<string, Row>,
+): Promise<SuggestedFund[]> {
+  const awardFundIds = ids(
+    submissionRows
+      .filter((row) => row['Status'] === 'Curated' && num(row['$ amount raised']) > 0)
+      .map((row) => row['Fund']),
+  );
+  const ownFundIds = ids([...slices.map((slice) => slice['fund']), ...awardFundIds]);
+  if (ownFundIds.length === 0) return [];
+
+  const missing = ownFundIds.filter((id) => !byId(fundsById, id));
+  const catalog = missing.length ? { ...fundsById, ...(await client.indexed('fund', missing)) } : fundsById;
+  const ownFunds = ownFundIds.map((id) => {
+    const row = byId(catalog, id);
+    return {
+      id,
+      name: text(row?.['name']) ?? '',
+      slug: text(row?.['Slug']),
+    };
+  });
+  const excludeFundIds = ids([
+    ...ownFundIds,
+    ...submissionRows.filter((row) => !(row['Submitted'] == false)).map((row) => row['Fund']),
+  ]);
+  return suggestFunds(client, { projectId, ownFunds, excludeFundIds });
 }
 
 function projectDriveDetails(drives: Drive[], statsByDrive: Record<string, DriveStat>): ProjectDriveDetail[] {

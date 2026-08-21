@@ -9,5 +9,6 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["src", "worker-configuration.d.ts"]
+  "include": ["src", "worker-configuration.d.ts"],
+  "exclude": ["**/*.test.ts"]
 }
