@@ -208,10 +208,14 @@ async function projectSuggestedFunds(
 
   const missing = ownFundIds.filter((id) => !byId(fundsById, id));
   const catalog = missing.length ? { ...fundsById, ...(await client.indexed('fund', missing)) } : fundsById;
-  const ownFunds = ownFundIds.map((id) => ({
-    id,
-    name: text(byId(catalog, id)?.['name']) ?? '',
-  }));
+  const ownFunds = ownFundIds.map((id) => {
+    const row = byId(catalog, id);
+    return {
+      id,
+      name: text(row?.['name']) ?? '',
+      slug: text(row?.['Slug']),
+    };
+  });
   const excludeFundIds = ids([
     ...ownFundIds,
     ...submissionRows.filter((row) => !(row['Submitted'] == false)).map((row) => row['Fund']),

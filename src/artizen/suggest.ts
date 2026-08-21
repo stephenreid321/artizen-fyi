@@ -7,7 +7,17 @@ const MATCH_CAP: Constraint = { key: 'match cap $', constraint_type: 'greater th
 export const SIBLING_CAP = 80;
 export const SUGGEST_LIMIT = 6;
 
-export type OwnFund = { id: string; name: string };
+// Every project joins this fund, so co-occurrence through it is meaningless.
+const GLOBAL_FUND_NAMES = new Set(['artizen fund for human creativity']);
+const GLOBAL_FUND_SLUGS = new Set(['artizen-fund-for-human-creativity']);
+
+export type OwnFund = { id: string; name: string; slug?: string };
+
+export function isGlobalFund(fund: { name?: string; slug?: string }): boolean {
+  const name = (fund.name ?? '').trim().toLowerCase();
+  const slug = (fund.slug ?? '').trim().toLowerCase();
+  return GLOBAL_FUND_NAMES.has(name) || GLOBAL_FUND_SLUGS.has(slug);
+}
 
 type RankedFund = {
   fundId: string;
@@ -60,7 +70,7 @@ export async function suggestFunds(
     limit?: number;
   },
 ): Promise<SuggestedFund[]> {
-  const ownFunds = opts.ownFunds.filter((fund) => fund.id);
+  const ownFunds = opts.ownFunds.filter((fund) => fund.id && !isGlobalFund(fund));
   if (ownFunds.length === 0) return [];
 
   const projectId = String(opts.projectId);
@@ -128,7 +138,10 @@ export async function suggestFunds(
   );
   const kept = ranked.filter((row) => {
     const fund = byId(fundsById, row.fundId);
-    return Boolean(fund && fund['active'] !== false && text(fund['name']));
+    if (!fund || fund['active'] === false) return false;
+    const name = text(fund['name']);
+    if (!name) return false;
+    return !isGlobalFund({ name, slug: text(fund['Slug']) });
   }).slice(0, limit);
   if (kept.length === 0) return [];
 

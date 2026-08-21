@@ -239,4 +239,84 @@ describe('suggestFunds', () => {
     assert.equal(rows[0].available, undefined);
     assert.equal(rows[0].subtitle, undefined);
   });
+
+  it('ignores Artizen Fund for Human Creativity as an own fund', async () => {
+    const human = {
+      id: 'human',
+      name: 'Artizen Fund for Human Creativity',
+      slug: 'artizen-fund-for-human-creativity',
+    };
+    const client = new MockBubble(
+      [
+        slice('p', 'human'),
+        slice('a', 'human'),
+        slice('b', 'human'),
+        slice('a', 'climate'),
+        slice('b', 'climate'),
+      ],
+      projects,
+      { climate, human: { name: human.name, Slug: human.slug, active: true } },
+    );
+    const rows = await suggestFunds(client, {
+      projectId: 'p',
+      ownFunds: [human],
+      excludeFundIds: ['human'],
+    });
+    assert.deepEqual(rows, []);
+  });
+
+  it('does not crawl siblings through Human Creativity when other own funds exist', async () => {
+    const human = {
+      id: 'human',
+      name: 'Artizen Fund for Human Creativity',
+      slug: 'artizen-fund-for-human-creativity',
+    };
+    const client = new MockBubble(
+      [
+        slice('p', 'human'),
+        slice('p', 'ocean'),
+        slice('a', 'human'),
+        slice('b', 'human'),
+        slice('a', 'forest'),
+        slice('b', 'forest'),
+        slice('c', 'ocean'),
+        slice('c', 'climate'),
+      ],
+      { ...projects, c: { Name: 'C' } },
+      {
+        climate,
+        forest,
+        human: { name: human.name, Slug: human.slug, active: true },
+      },
+    );
+    const rows = await suggestFunds(client, {
+      projectId: 'p',
+      ownFunds: [human, ocean],
+      excludeFundIds: ['human', 'ocean'],
+    });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].name, 'Climate Lab');
+    assert.equal(rows[0].connectingFund, 'Ocean DAO');
+    assert.equal(rows[0].sharedProjects, 1);
+  });
+
+  it('does not suggest Artizen Fund for Human Creativity as a candidate', async () => {
+    const client = new MockBubble(
+      [slice('p', 'ocean'), slice('a', 'ocean'), slice('a', 'human')],
+      projects,
+      {
+        human: {
+          name: 'Artizen Fund for Human Creativity',
+          Slug: 'artizen-fund-for-human-creativity',
+          active: true,
+        },
+      },
+    );
+    const rows = await suggestFunds(client, {
+      projectId: 'p',
+      ownFunds: [ocean],
+      excludeFundIds: ['ocean'],
+    });
+    assert.deepEqual(rows, []);
+  });
 });
