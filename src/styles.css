@@ -14,7 +14,6 @@
   --green: #1ACC6C;
   --green-deep: #06AA59;
   --warn: #D6C52D;
-  --lavender: #C2B6DC;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
@@ -1171,19 +1170,19 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* White on Moss is ~6.9:1. Fit quality owns green; relationship history uses a separate colour. */
+/* White on Moss is ~6.9:1. Strong, Good, and history badges share that fill so the card stays one green. */
 .artizen-fit-strong { color: #fff; background: var(--green-deep); }
 .artizen-fit-good { color: #fff; background: var(--green-deep); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 /* Limited evidence: a dashed Stone outline. */
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Applied, Curated, and Funded are all relationship history, distinct from match quality. */
+/* Same filled treatment as Strong / Project: white type on Moss, not Algae. */
 .artizen-known-relationship {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-  color: var(--ink);
-  background: var(--lavender);
+  color: #fff;
+  background: var(--green-deep);
 }
 .artizen-known-relationship .bi {
   font-size: 0.9em;

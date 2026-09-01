@@ -43,9 +43,10 @@ describe('matching layout', () => {
     expect(styles).toMatch(/\.artizen-ai-note-warning\s*\{[^}]*background:/);
   });
 
-  it('uses lavender for relationship history while fit quality remains green', () => {
-    expect(styles).toContain('--lavender: #C2B6DC');
+  it('uses Moss for relationship history so the card stays one green', () => {
+    expect(styles).not.toContain('--lavender');
     expect(styles).toMatch(/\.artizen-fit-strong\s*\{[^}]*background:\s*var\(--green-deep\);/);
-    expect(styles).toMatch(/\.artizen-known-relationship\s*\{[^}]*background:\s*var\(--lavender\);/);
+    expect(styles).toMatch(/\.artizen-known-relationship\s*\{[^}]*color:\s*#fff;/);
+    expect(styles).toMatch(/\.artizen-known-relationship\s*\{[^}]*background:\s*var\(--green-deep\);/);
   });
 });
