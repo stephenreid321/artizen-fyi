@@ -1,0 +1,3 @@
+interface:
+  display_name: "Review"
+  short_description: "Review a diff on this repo's standards and the spec"

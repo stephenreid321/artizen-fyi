@@ -1,0 +1,3 @@
+# Prepared vectors for catalog projects, the model only for new text
+
+Both sides of a catalog-project comparison are known when the catalog is built, so fund and project vectors ship as static files and the browser takes a dot product: no model download, no WebAssembly, no inference. The on-device model (pinned `mxbai-embed-xsmall-v1`, about 50 MB on a cold run) loads only for a freeform description or an edited project, because that text did not exist at build time. Each vector carries a fingerprint of the exact text it was built from, so it cannot be scored against different wording. Source: MATCHING.md.

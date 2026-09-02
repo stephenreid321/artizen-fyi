@@ -1,0 +1,3 @@
+# The catalog is a deploy-time release, not a cron-refreshed cache
+
+The matching catalog, its vectors and the pinned model are one release artifact, built by Wrangler's custom build (`scripts/prepare-release.mjs`) before every deploy, including git-push auto-deploys that clone a tree with no `public/`. `public/` stays gitignored, so a clone has no matching assets until it builds them. The catalog is deployment-scoped rather than refreshed by cron: the UI treats it as current for 30 days, then names its build date and warns that newer Artizen changes may be missing. A threshold change in `src/matching/index.ts` does nothing until the catalog is rebuilt. Sources: commit 0b61eee, MATCHING.md.
