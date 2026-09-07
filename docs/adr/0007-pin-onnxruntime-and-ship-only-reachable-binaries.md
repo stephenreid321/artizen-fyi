@@ -1,0 +1,3 @@
+# Pin onnxruntime-web and ship only the binaries the bundle can reach
+
+`onnxruntime-web` is pinned to an exact version in both `dependencies` and `overrides`, so a transitive bump cannot install a second copy under `@huggingface/transformers` and ship wasm from one version against a runtime bundled from another; `build:client` asserts the installed version still matches the pin. ONNX Runtime ships four wasm builds but each entry point hardcodes one, so `build:client` reads the wasm filenames out of the built bundles and copies only those, failing if the bundle names a file ONNX Runtime does not ship and deleting variants a previous build left behind. Sources: commits 1871578 and 95122de, MATCHING.md.
