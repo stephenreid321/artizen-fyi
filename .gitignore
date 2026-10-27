@@ -1,6 +1,7 @@
 node_modules/
 .wrangler/
 .dev.vars
+tmp/
 dist/
 public/
 .DS_Store

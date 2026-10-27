@@ -1,82 +1,27 @@
 # artizen.fyi
 
-Created by [Stephen Reid](https://stephenreid.net/)
+Created by [Stephen Reid](https://stephenreid.net/).
 
-Public leaderboards and private, on-device fund matching for [artizen.fund](https://artizen.fund/), running on Cloudflare. [artizen.fyi](https://artizen.fyi) is the canonical deployment.
+The live Cloudflare Worker behind [artizen.fyi](https://artizen.fyi) is retired. That domain now redirects here.
 
-## Infra
+It was a public mirror of [artizen.fund](https://artizen.fund/) leaderboards, with private on-device fund matching. Artizen Works shut the platform down in October 2026.
 
-artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
+## Archived KV cache
 
-- **Worker** — HTML routes, static browser assets, Bubble API crawler, 10-minute cron
-- **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`, `artizen/boosts/…`)
+A snapshot of the production Cloudflare KV cache, taken 9 October 2026 — leaderboards, project pages, and remaining boosts:
 
-It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
+**[Download prod-kv-2026-10-09.zip](archive/prod-kv-2026-10-09.zip)** (8.8 MB)
 
-Git-push auto-deploy runs `wrangler deploy`, which rebuilds the matching catalog, vectors, and pinned model before upload (`public/` is gitignored, so a clone does not have them). That crawl takes several minutes. `wrangler dev` does not.
+The zip contains:
 
-artizen.fyi is the apex; `www` 301s there.
-
-## Local development
-
-PRs are welcome. Work against a local Worker:
-
-```bash
-npm install
-npm run dev          # local Worker + local KV
-npm run check        # types, unit tests, and browser bundle budgets
-```
-
-Node 22 or newer — Wrangler requires it, and the index builders use the WebCrypto global that older runtimes do not expose.
-
-To work on the on-device AI path, fetch its assets once (see [MATCHING.md](MATCHING.md)); without them the “Improve with local AI” control stays hidden. Wrangler snapshots static assets when it starts, so restart `npm run dev` after generating the model or vector files.
-
-Leaderboard changes need a cache rebuild before they show up, because KV keeps serving the previous data:
-
-```bash
-curl "http://localhost:8787/cdn-cgi/local/scheduled"
-```
-
-Wipe local KV (Wrangler persist) with `rm -rf .wrangler/state`, then restart `npm run dev`. The next page load recrawls Bubble (~30–60s). After that, pages read KV. On artizen.fyi those list pages never crawl; they wait for cron. A project or fund detail with no stash still crawls that one page.
-
-Local cron (writes local KV):
-
-```bash
-curl "http://localhost:8787/cdn-cgi/local/scheduled"
-```
-
-Production cron (writes the live CACHE namespace). Uses 8788 so `npm run dev` can stay on 8787:
-
-```bash
-npx wrangler dev --env cron --port 8788
-```
-
-Then in another terminal:
-
-```bash
-curl "http://localhost:8788/cdn-cgi/local/scheduled"
-```
-
-A full run crawls every season and can take several minutes. Watch the Wrangler log for `[Artizen] refreshed`.
-
-## Fund matching
-
-Private, on-device matching lives at `/match`. Catalog, ranker, on-device model, and local commands are in [MATCHING.md](MATCHING.md).
-
-## Routes
-
-| Path | Page |
+| Path | Contents |
 | --- | --- |
-| `/` | redirect to `/projects` (keeps `?season=`) |
-| `/projects`, `/funds`, `/drives` | season leaderboards (`?season=` optional) |
-| `/strategies` | three strategies, read from V/S, M/S, and P/S (`?season=` optional) |
-| `/boosts` | remaining boosts + top 100 holders |
-| `/search` | project/fund search (`?q=`) |
-| `/match` | private, client-side fund matching |
-| `/match/review` | blind relevance review, local QA server only |
-| `/match/index.json` | the matching catalog, combined |
-| `/match/core.json` | funds, facets, scoring, and published descriptions and eligibility language — the 1.48 MB first-paint payload |
-| `/match/projects.json` | the project list, fetched when the picker opens |
-| `/match/project/:id.json` | one project record, for a project page |
-| `/projects/:slug`, `/funds/:slug` | detail |
-| `/index/p/:slug`, `/index/mf/:slug` | 301 to the matching detail page (artizen.fund path) |
+| `prod-kv.json` / `prod-kv.csv` | Raw key/value dump (384 keys) |
+| `csv/projects.csv` | Project pages |
+| `csv/leaderboard-projects.csv`, `csv/leaderboard-funds.csv` | Season tables |
+| `csv/drives.csv`, `csv/boosts.csv`, `csv/boost-holders.csv` | Drives and boosts |
+| `csv/` | Other flattened tables (tags, submissions, seasons, …) |
+
+## Source
+
+Worker source remains in this repo as a historical record. It is no longer deployed. Matching internals are in [MATCHING.md](MATCHING.md).

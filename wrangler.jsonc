@@ -20,28 +20,14 @@
     "subrequests": 10000
   },
   "triggers": {
-    "crons": ["*/10 * * * *"]
+    "crons": []
   },
-  "routes": [
-    { "pattern": "artizen.fyi", "custom_domain": true },
-    { "pattern": "www.artizen.fyi", "custom_domain": true }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "CACHE",
-      "id": "a8dd813cf26448dbb3ac37d31d8d5a43"
-    }
-  ],
+  "routes": [],
+  "kv_namespaces": [],
   "env": {
     "cron": {
       "routes": [],
-      "kv_namespaces": [
-        {
-          "binding": "CACHE",
-          "id": "a8dd813cf26448dbb3ac37d31d8d5a43",
-          "remote": true
-        }
-      ]
+      "kv_namespaces": []
     }
   },
   "rules": [
